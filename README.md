@@ -1,1 +1,0 @@
-# narmast-vinner

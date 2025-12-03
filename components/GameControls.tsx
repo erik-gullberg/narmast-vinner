@@ -1,0 +1,151 @@
+'use client'
+
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { Database } from '@/lib/database.types'
+import { sampleEvents } from '@/lib/events'
+
+type Game = Database['public']['Tables']['games']['Row']
+
+interface GameControlsProps {
+  game: Game | null
+  playersCount: number
+  onShowResults: () => void
+}
+
+export default function GameControls({
+  game,
+  playersCount,
+  onShowResults,
+}: GameControlsProps) {
+  const [starting, setStarting] = useState(false)
+
+  const startGame = async () => {
+    if (!game || playersCount === 0) return
+
+    setStarting(true)
+
+    try {
+      // Insert sample events into database (if not already there)
+      const { data: existingEvents } = await supabase
+        .from('events')
+        .select('id')
+        .limit(1)
+
+      if (!existingEvents || existingEvents.length === 0) {
+        await supabase.from('events').insert(sampleEvents)
+      }
+
+      // Get a random event
+      const { data: events } = await supabase
+        .from('events')
+        .select('id')
+
+      if (!events || events.length === 0) return
+
+      const randomEvent = events[Math.floor(Math.random() * events.length)]
+
+      // Update game status
+      await supabase
+        .from('games')
+        .update({
+          status: 'playing',
+          current_round: 1,
+          current_event_id: randomEvent.id,
+        })
+        .eq('id', game.id)
+    } catch (error) {
+      console.error('Error starting game:', error)
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  const nextRound = async () => {
+    if (!game) return
+
+    try {
+      // Get a random event (different from current)
+      const { data: events } = await supabase
+        .from('events')
+        .select('id')
+        .neq('id', game.current_event_id || '')
+
+      if (!events || events.length === 0) {
+        // No more events, end game
+        await supabase
+          .from('games')
+          .update({ status: 'finished' })
+          .eq('id', game.id)
+        return
+      }
+
+      const randomEvent = events[Math.floor(Math.random() * events.length)]
+
+      await supabase
+        .from('games')
+        .update({
+          current_round: game.current_round + 1,
+          current_event_id: randomEvent.id,
+        })
+        .eq('id', game.id)
+    } catch (error) {
+      console.error('Error starting next round:', error)
+    }
+  }
+
+  const endGame = async () => {
+    if (!game) return
+
+    try {
+      await supabase
+        .from('games')
+        .update({ status: 'finished' })
+        .eq('id', game.id)
+    } catch (error) {
+      console.error('Error ending game:', error)
+    }
+  }
+
+  if (!game) return null
+
+  return (
+    <div className="bg-white rounded-lg shadow p-4">
+      <h3 className="font-bold text-lg mb-3 text-gray-800">Host Controls</h3>
+
+      {game.status === 'waiting' && (
+        <button
+          onClick={startGame}
+          disabled={playersCount === 0 || starting}
+          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+        >
+          {starting ? 'Starting...' : 'Start Game'}
+        </button>
+      )}
+
+      {game.status === 'playing' && (
+        <div className="space-y-2">
+          <button
+            onClick={onShowResults}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+          >
+            Show Results
+          </button>
+          <button
+            onClick={nextRound}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+          >
+            Next Round
+          </button>
+          <button
+            onClick={endGame}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+          >
+            End Game
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
