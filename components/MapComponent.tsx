@@ -60,6 +60,7 @@ export default function MapComponent({
   const [guessLon, setGuessLon] = useState<number | null>(null)
   const [hasPlacedPin, setHasPlacedPin] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     // Fix for default marker icons in Leaflet
@@ -78,7 +79,15 @@ export default function MapComponent({
     setGuessLat(null)
     setGuessLon(null)
     setHasPlacedPin(false)
+    setSubmitting(false)
   }, [round])
+
+  // Auto-submit guess when time runs out
+  useEffect(() => {
+    if (disabled && hasPlacedPin && !submitting && guessLat && guessLon) {
+      submitGuess()
+    }
+  }, [disabled])
 
   const handleMapClick = (lat: number, lng: number) => {
     if (!disabled) {
@@ -89,7 +98,9 @@ export default function MapComponent({
   }
 
   const submitGuess = async () => {
-    if (!guessLat || !guessLon || disabled) return
+    if (!guessLat || !guessLon || submitting) return
+
+    setSubmitting(true)
 
     try {
       const { data: event } = await supabase
@@ -172,21 +183,16 @@ export default function MapComponent({
 
       <div className="p-4 bg-gray-50 border-t">
         {hasPlacedPin && !disabled ? (
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <p className="text-sm text-gray-600">
-              Pin placed at: {guessLat?.toFixed(2)}, {guessLon?.toFixed(2)}
+              Your guess: {guessLat?.toFixed(2)}, {guessLon?.toFixed(2)} - Will be submitted when time runs out
             </p>
-            <button
-              onClick={submitGuess}
-              className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg touch-manipulation"
-            >
-              Confirm Guess
-            </button>
           </div>
         ) : (
           <p className="text-sm text-gray-600 text-center">
             {disabled
-              ? 'Waiting for other players...'
+              ? (submitting ? 'Submitting your guess...' : hasPlacedPin ? 'Guess submitted!' : 'Time is up!')
               : 'Click on the map to place your pin'}
           </p>
         )}

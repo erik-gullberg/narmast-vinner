@@ -18,6 +18,7 @@ export type Database = {
           current_round: number
           status: 'waiting' | 'playing' | 'finished'
           current_event_id: string | null
+          phase: 'waiting' | 'showing_image' | 'guessing' | 'revealing'
         }
         Insert: {
           id?: string
@@ -27,6 +28,7 @@ export type Database = {
           current_round?: number
           status?: 'waiting' | 'playing' | 'finished'
           current_event_id?: string | null
+          phase?: 'waiting' | 'showing_image' | 'guessing' | 'revealing'
         }
         Update: {
           id?: string
@@ -36,6 +38,7 @@ export type Database = {
           current_round?: number
           status?: 'waiting' | 'playing' | 'finished'
           current_event_id?: string | null
+          phase?: 'waiting' | 'showing_image' | 'guessing' | 'revealing'
         }
         Relationships: []
       }

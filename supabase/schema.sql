@@ -12,7 +12,8 @@ CREATE TABLE games (
   host_id UUID NOT NULL,
   current_round INTEGER DEFAULT 0,
   status TEXT CHECK (status IN ('waiting', 'playing', 'finished')) DEFAULT 'waiting',
-  current_event_id UUID
+  current_event_id UUID,
+  phase TEXT CHECK (phase IN ('waiting', 'showing_image', 'guessing', 'revealing')) DEFAULT 'waiting'
 );
 
 -- Players table

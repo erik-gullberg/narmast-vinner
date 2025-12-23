@@ -183,7 +183,7 @@ export default function GamePage() {
 
   // Timer logic
   useEffect(() => {
-    if (game?.status !== 'playing' || hasGuessed) return
+    if (game?.status !== 'playing' || game?.phase !== 'guessing' || hasGuessed) return
 
     setTimeLeft(15)
     const timer = setInterval(() => {
@@ -197,7 +197,7 @@ export default function GamePage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [game?.status, game?.current_round, hasGuessed])
+  }, [game?.status, game?.phase, game?.current_round, hasGuessed])
 
   // Check if all players have guessed
   useEffect(() => {
@@ -246,12 +246,6 @@ export default function GamePage() {
             <h1 className="text-2xl font-bold text-gray-800">Närmast Vinner</h1>
             <p className="text-sm text-gray-600">Game Code: <span className="font-mono font-bold">{gameCode}</span></p>
           </div>
-          {game?.status === 'playing' && !hasGuessed && (
-            <div className="text-right">
-              <div className="text-sm text-gray-600">Time left</div>
-              <div className="text-3xl font-bold text-indigo-600">{timeLeft}s</div>
-            </div>
-          )}
         </div>
       </header>
 
@@ -283,9 +277,26 @@ export default function GamePage() {
             </div>
           )}
 
-          {game?.status === 'playing' && currentEvent && !showResults && (
-            <>
+          {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <h2 className="text-gray-600 text-2xl font-bold mb-4">Round {game.current_round}</h2>
+              <p className="text-gray-600 mb-6">Study the image carefully!</p>
               <EventDisplay event={currentEvent} showDetails={false} />
+              {!isHost && (
+                <p className="text-gray-500 mt-6">Waiting for host to start guessing...</p>
+              )}
+            </div>
+          )}
+
+          {game?.status === 'playing' && game?.phase === 'guessing' && !hasGuessed && (
+              <div className="text-right">
+                <div className="text-sm text-gray-600">Time left</div>
+                <div className="text-3xl font-bold text-indigo-600">{timeLeft}s</div>
+              </div>
+          )}
+
+          {game?.status === 'playing' && currentEvent && game.phase === 'guessing' && !showResults && (
+            <>
               <MapComponent
                 gameId={game.id}
                 playerId={playerId!}

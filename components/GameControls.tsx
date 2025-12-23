@@ -52,6 +52,7 @@ export default function GameControls({
           status: 'playing',
           current_round: 1,
           current_event_id: randomEvent.id,
+          phase: 'showing_image',
         })
         .eq('id', game.id)
     } catch (error) {
@@ -87,10 +88,24 @@ export default function GameControls({
         .update({
           current_round: game.current_round + 1,
           current_event_id: randomEvent.id,
+          phase: 'showing_image',
         })
         .eq('id', game.id)
     } catch (error) {
       console.error('Error starting next round:', error)
+    }
+  }
+
+  const startGuessing = async () => {
+    if (!game) return
+
+    try {
+      await supabase
+        .from('games')
+        .update({ phase: 'guessing' })
+        .eq('id', game.id)
+    } catch (error) {
+      console.error('Error starting guessing phase:', error)
     }
   }
 
@@ -125,18 +140,30 @@ export default function GameControls({
 
       {game.status === 'playing' && (
         <div className="space-y-2">
-          <button
-            onClick={onShowResults}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
-          >
-            Show Results
-          </button>
-          <button
-            onClick={nextRound}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
-          >
-            Next Round
-          </button>
+          {game.phase === 'showing_image' && (
+            <button
+              onClick={startGuessing}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+            >
+              Start Guessing
+            </button>
+          )}
+          {game.phase === 'guessing' && (
+            <>
+              <button
+                onClick={onShowResults}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+              >
+                Show Results
+              </button>
+              <button
+                onClick={nextRound}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+              >
+                Next Round
+              </button>
+            </>
+          )}
           <button
             onClick={endGame}
             className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
