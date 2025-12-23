@@ -160,13 +160,13 @@ export default function Results({
                       {getPlayerName(guess.player_id)}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {guess.distance_km.toFixed(0)} km away
+                      {guess.distance_km.toFixed(0)} km ifrån
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold text-indigo-600">
-                    +{points} pts
+                    +{points} poäng
                   </div>
                 </div>
               </div>
@@ -178,14 +178,6 @@ export default function Results({
             </p>
           )}
         </div>
-
-        {isHost && (
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600 mb-2">
-              Ready for the next round?
-            </p>
-          </div>
-        )}
       </div>
       </div>
     </div>

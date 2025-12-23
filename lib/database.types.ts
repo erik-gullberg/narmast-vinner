@@ -19,6 +19,7 @@ export type Database = {
           status: 'waiting' | 'playing' | 'finished'
           current_event_id: string | null
           phase: 'waiting' | 'showing_image' | 'guessing' | 'revealing'
+          phase_started_at: string | null
         }
         Insert: {
           id?: string
@@ -29,6 +30,7 @@ export type Database = {
           status?: 'waiting' | 'playing' | 'finished'
           current_event_id?: string | null
           phase?: 'waiting' | 'showing_image' | 'guessing' | 'revealing'
+          phase_started_at?: string | null
         }
         Update: {
           id?: string
@@ -39,6 +41,7 @@ export type Database = {
           status?: 'waiting' | 'playing' | 'finished'
           current_event_id?: string | null
           phase?: 'waiting' | 'showing_image' | 'guessing' | 'revealing'
+          phase_started_at?: string | null
         }
         Relationships: []
       }

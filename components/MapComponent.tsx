@@ -174,7 +174,7 @@ export default function MapComponent({
           <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[1000] pointer-events-none">
             <div className="bg-white rounded-lg p-4 text-center shadow-lg">
               <p className="font-semibold text-gray-900">
-                {hasPlacedPin ? 'Guess submitted!' : 'Time is up!'}
+                {hasPlacedPin ? 'Gissning skickad!' : 'Tyvärr, tiden är ute!'}
               </p>
             </div>
           </div>
@@ -186,14 +186,14 @@ export default function MapComponent({
           <div className="flex items-center justify-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <p className="text-sm text-gray-600">
-              Your guess: {guessLat?.toFixed(2)}, {guessLon?.toFixed(2)} - Will be submitted when time runs out
+              Du gissar på: {guessLat?.toFixed(2)}, {guessLon?.toFixed(2)}
             </p>
           </div>
         ) : (
           <p className="text-sm text-gray-600 text-center">
             {disabled
-              ? (submitting ? 'Submitting your guess...' : hasPlacedPin ? 'Guess submitted!' : 'Time is up!')
-              : 'Click on the map to place your pin'}
+              ? (submitting ? 'Skickar gissning..' : hasPlacedPin ? 'Gissning skickad!' : 'Tiden är ute!')
+              : 'Klicka på kartan för att placera din nål'}
           </p>
         )}
       </div>

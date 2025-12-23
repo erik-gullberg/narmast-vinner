@@ -14,7 +14,7 @@ export default function Home() {
 
   const createGame = async () => {
     if (!playerName.trim()) {
-      setError('Please enter your name')
+      setError('Skriv in ditt namn')
       return
     }
 
@@ -66,7 +66,7 @@ export default function Home() {
 
   const joinGame = async () => {
     if (!playerName.trim()) {
-      setError('Please enter your name')
+      setError('Skriv in ditt namn')
       return
     }
 
@@ -131,20 +131,20 @@ export default function Home() {
           Närmast Vinner
         </h1>
         <p className="text-center text-gray-600 mb-8">
-          Guess where historical events happened!
+          Totalt orginellt spel för folk som gillar kartor
         </p>
 
         <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your Name
+              Spelarnamn
             </label>
             <input
               type="text"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-              placeholder="Enter your name"
+              placeholder="Skriv in ett bra spelarnamn"
               maxLength={20}
             />
           </div>
@@ -160,7 +160,7 @@ export default function Home() {
             disabled={loading}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
-            {loading ? 'Creating...' : 'Create New Game'}
+            {loading ? 'Skapar...' : 'Skapa nytt spel'}
           </button>
 
           <div className="relative">
@@ -168,20 +168,20 @@ export default function Home() {
               <div className="w-full border-t border-gray-300"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or</span>
+              <span className="px-2 bg-white text-gray-500">Eller</span>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Game Code
+              Spelkod
             </label>
             <input
               type="text"
               value={gameCode}
               onChange={(e) => setGameCode(e.target.value.toUpperCase())}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 uppercase"
-              placeholder="Enter game code"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+              placeholder="Skriv spelkod"
               maxLength={6}
             />
           </div>
@@ -191,7 +191,7 @@ export default function Home() {
             disabled={loading}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
-            {loading ? 'Joining...' : 'Join Game'}
+            {loading ? 'Går med...' : 'Gå med i spel'}
           </button>
         </div>
       </div>

@@ -30,7 +30,7 @@ export default function PlayerList({ players, currentPlayerId }: PlayerListProps
               <span className="font-medium text-gray-800">
                 {player.name}
                 {player.id === currentPlayerId && (
-                  <span className="ml-2 text-xs text-indigo-600">(You)</span>
+                  <span className="ml-2 text-xs text-indigo-600"></span>
                 )}
               </span>
             </div>

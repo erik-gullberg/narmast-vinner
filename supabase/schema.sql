@@ -13,7 +13,8 @@ CREATE TABLE games (
   current_round INTEGER DEFAULT 0,
   status TEXT CHECK (status IN ('waiting', 'playing', 'finished')) DEFAULT 'waiting',
   current_event_id UUID,
-  phase TEXT CHECK (phase IN ('waiting', 'showing_image', 'guessing', 'revealing')) DEFAULT 'waiting'
+  phase TEXT CHECK (phase IN ('waiting', 'showing_image', 'guessing', 'revealing')) DEFAULT 'waiting',
+  phase_started_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Players table

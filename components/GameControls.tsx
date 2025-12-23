@@ -102,7 +102,10 @@ export default function GameControls({
     try {
       await supabase
         .from('games')
-        .update({ phase: 'guessing' })
+        .update({
+          phase: 'guessing',
+          phase_started_at: new Date().toISOString()
+        })
         .eq('id', game.id)
     } catch (error) {
       console.error('Error starting guessing phase:', error)

@@ -128,6 +128,15 @@ export default function GamePage() {
     }
   }, [game])
 
+  const getMedal = (placement: number) => {
+    switch (placement) {
+      case 0: return '🥇'
+      case 1: return '🥈'
+      case 2: return '🥉'
+      default: return ''
+    }
+  }
+
   // Load players
   const loadPlayers = async () => {
     if (!game) return
@@ -181,23 +190,26 @@ export default function GamePage() {
     loadCurrentEvent()
   }, [game?.current_event_id])
 
-  // Timer logic
+  // Timer logic - calculate based on server timestamp
   useEffect(() => {
-    if (game?.status !== 'playing' || game?.phase !== 'guessing' || hasGuessed) return
+    if (game?.status !== 'playing' || game?.phase !== 'guessing' || hasGuessed || !game.phase_started_at) return
 
-    setTimeLeft(15)
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+    const updateTimer = () => {
+      const startTime = new Date(game.phase_started_at!).getTime()
+      const now = Date.now()
+      const elapsed = Math.floor((now - startTime) / 1000)
+      const remaining = Math.max(0, 15 - elapsed)
+      setTimeLeft(remaining)
+    }
+
+    // Update immediately
+    updateTimer()
+
+    // Update every 100ms for smooth countdown
+    const timer = setInterval(updateTimer, 100)
 
     return () => clearInterval(timer)
-  }, [game?.status, game?.phase, game?.current_round, hasGuessed])
+  }, [game?.status, game?.phase, game?.current_round, game?.phase_started_at, hasGuessed])
 
   // Check if all players have guessed
   useEffect(() => {
@@ -323,16 +335,16 @@ export default function GamePage() {
 
           {game?.status === 'finished' && (
             <div className="bg-white rounded-lg shadow p-8 text-center">
-              <h2 className="text-3xl font-bold mb-4">Game Over!</h2>
-              <h3 className="text-xl mb-4">Final Scores</h3>
+              <h2 className="text-black text-3xl font-bold mb-4">Game Over!</h2>
+              <h3 className="text-black text-xl mb-4">Final Scores</h3>
               <div className="space-y-2">
                 {players.map((player, index) => (
                   <div
                     key={player.id}
                     className="flex justify-between items-center p-3 bg-gray-50 rounded"
                   >
-                    <span className="font-semibold">
-                      {index + 1}. {player.name}
+                    <span className="text-black font-semibold">
+                      {getMedal(index)} {index + 1}. {player.name}
                     </span>
                     <span className="text-indigo-600 font-bold">{player.score} points</span>
                   </div>
