@@ -293,7 +293,7 @@ export default function GamePage() {
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <h2 className="text-gray-600 text-2xl font-bold mb-4">Round {game.current_round}</h2>
               <p className="text-gray-600 mb-6">Study the image carefully!</p>
-              <EventDisplay event={currentEvent} showDetails={false} />
+              <EventDisplay event={currentEvent} />
               {!isHost && (
                 <p className="text-gray-500 mt-6">Waiting for host to start guessing...</p>
               )}
