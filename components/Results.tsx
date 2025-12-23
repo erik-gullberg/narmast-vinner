@@ -74,7 +74,7 @@ export default function Results({
   return (
     <div className="space-y-6">
       {/* Event Details */}
-      <EventDisplay event={event} showDetails={true} />
+      <EventDisplay event={event} />
 
       <div className="bg-white rounded-xl shadow-xl overflow-hidden">
         {/* Event location reveal */}
