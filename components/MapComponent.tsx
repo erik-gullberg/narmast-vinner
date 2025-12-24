@@ -85,7 +85,6 @@ export default function MapComponent({
   // Auto-submit guess when time runs out
   useEffect(() => {
     if (disabled && hasPlacedPin && !submitting && guessLat && guessLon) {
-      console.log('Auto-submitting guess:', { guessLat, guessLon, disabled, hasPlacedPin, submitting })
       submitGuess()
     }
   }, [disabled, hasPlacedPin, guessLat, guessLon, submitting])
@@ -99,14 +98,11 @@ export default function MapComponent({
   }
 
   const submitGuess = async () => {
-    console.log('submitGuess called', { guessLat, guessLon, submitting })
     if (!guessLat || !guessLon || submitting) {
-      console.log('submitGuess early return', { guessLat, guessLon, submitting })
       return
     }
 
     setSubmitting(true)
-    console.log('Submitting guess to database...')
 
     try {
       const { data: event } = await supabase
@@ -127,7 +123,6 @@ export default function MapComponent({
         event.longitude
       )
 
-      console.log('Inserting guess:', { gameId, playerId, eventId, distance, round })
       const { error: insertError } = await supabase.from('guesses').insert({
         game_id: gameId,
         player_id: playerId,
@@ -143,8 +138,6 @@ export default function MapComponent({
         return
       }
 
-      console.log('Guess inserted successfully')
-
       const points = Math.max(0, Math.round(1000 - distance))
 
       const { data: player } = await supabase
@@ -158,11 +151,9 @@ export default function MapComponent({
           .from('players')
           .update({ score: player.score + points })
           .eq('id', playerId)
-        console.log('Score updated:', player.score + points)
       }
 
       onGuess()
-      console.log('Guess submission complete!')
     } catch (error) {
       console.error('Error submitting guess:', error)
     }

@@ -206,12 +206,10 @@ export default function GamePage() {
 
       // Auto-show results when timer expires (only trigger once)
       if (remaining === 0 && !bufferTriggered && !showResults && !waitingForResults) {
-        console.log('Timer expired, triggering 5-second buffer')
         bufferTriggered = true
         setWaitingForResults(true)
         // 5 second buffer to ensure all auto-submissions sync across clients
         setTimeout(() => {
-          console.log('Buffer complete, showing results')
           setShowResults(true)
           setWaitingForResults(false)
         }, 5000)
@@ -298,7 +296,7 @@ export default function GamePage() {
               </div>
             </div>
           )}
-          {game?.phase !== 'guessing' && (
+          {(game?.phase !== 'guessing' || game?.status === 'finished') && (
             <PlayerList players={players} currentPlayerId={playerId} />
           )}
         </aside>
@@ -353,7 +351,7 @@ export default function GamePage() {
             </>
           )}
 
-          {showResults && currentEvent && (
+          {showResults && currentEvent && game?.status !== 'finished' && (
             <Results
               event={currentEvent}
               guesses={guesses}
