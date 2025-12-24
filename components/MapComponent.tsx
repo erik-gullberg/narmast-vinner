@@ -152,7 +152,7 @@ export default function MapComponent({
   if (!mounted) {
     return (
       <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col">
-        <div className="relative flex-1" style={{ minHeight: '400px', height: '60vh' }}>
+        <div className="relative flex-1" style={{ minHeight: '500px', height: '70vh' }}>
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">Loading map...</p>
           </div>
@@ -162,7 +162,7 @@ export default function MapComponent({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-xl overflow-hidden flex flex-col touch-none h-[50vh] lg:h-[600px]">
+    <div className="bg-white rounded-xl shadow-xl overflow-hidden flex flex-col touch-none h-[70vh] lg:h-[80vh] max-h-[900px]">
       <div key={round} className="relative flex-1 h-full">
         <Map
           onLocationClick={handleMapClick}

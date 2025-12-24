@@ -16,7 +16,7 @@ const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   ssr: false,
   loading: () => (
     <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col">
-      <div className="relative flex-1" style={{ minHeight: '400px', height: '60vh' }}>
+      <div className="relative flex-1" style={{ minHeight: '500px', height: '75vh' }}>
         <div className="flex items-center justify-center h-full">
           <p className="text-gray-500">Loading map...</p>
         </div>
@@ -261,17 +261,28 @@ export default function GamePage() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto w-full p-4 gap-4">
+      <div className="flex-1 flex flex-col lg:flex-row max-w-[1920px] mx-auto w-full p-4 gap-4">
+        {isHost && (
+            <GameControls
+                game={game}
+                playersCount={players.length}
+                onShowResults={() => setShowResults(true)}
+            />
+        )}
         {/* Sidebar */}
         <aside className="lg:w-80 space-y-4">
-          <PlayerList players={players} currentPlayerId={playerId} />
-
-          {isHost && (
-            <GameControls
-              game={game}
-              playersCount={players.length}
-              onShowResults={() => setShowResults(true)}
-            />
+          {game?.status === 'playing' && game?.phase === 'guessing' && !hasGuessed && (
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="text-center">
+                <div className="text-sm text-gray-600 mb-1">Time left</div>
+                <div className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}>
+                  {timeLeft}s
+                </div>
+              </div>
+            </div>
+          )}
+          {game?.phase !== 'guessing' && (
+            <PlayerList players={players} currentPlayerId={playerId} />
           )}
         </aside>
 
@@ -298,13 +309,6 @@ export default function GamePage() {
                 <p className="text-gray-500 mt-6">Waiting for host to start guessing...</p>
               )}
             </div>
-          )}
-
-          {game?.status === 'playing' && game?.phase === 'guessing' && !hasGuessed && (
-              <div className="text-right">
-                <div className="text-sm text-gray-600">Time left</div>
-                <div className="text-3xl font-bold text-indigo-600">{timeLeft}s</div>
-              </div>
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'guessing' && !showResults && (

@@ -155,12 +155,26 @@ export default function Home() {
             </div>
           )}
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Spelkod
+            </label>
+            <input
+                type="text"
+                value={gameCode}
+                onChange={(e) => setGameCode(e.target.value.toUpperCase())}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+                placeholder="Skriv spelkod"
+                maxLength={6}
+            />
+          </div>
+
           <button
-            onClick={createGame}
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+              onClick={joinGame}
+              disabled={loading}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
-            {loading ? 'Skapar...' : 'Skapa nytt spel'}
+            {loading ? 'Går med...' : 'Gå med i spel'}
           </button>
 
           <div className="relative">
@@ -171,29 +185,16 @@ export default function Home() {
               <span className="px-2 bg-white text-gray-500">Eller</span>
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Spelkod
-            </label>
-            <input
-              type="text"
-              value={gameCode}
-              onChange={(e) => setGameCode(e.target.value.toUpperCase())}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-              placeholder="Skriv spelkod"
-              maxLength={6}
-            />
-          </div>
-
-          <button
-            onClick={joinGame}
-            disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
-          >
-            {loading ? 'Går med...' : 'Gå med i spel'}
-          </button>
         </div>
+
+
+        <button
+            onClick={createGame}
+            disabled={loading}
+            className="mt-2.5 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+        >
+          {loading ? 'Skapar...' : 'Skapa nytt spel'}
+        </button>
       </div>
     </main>
   )
