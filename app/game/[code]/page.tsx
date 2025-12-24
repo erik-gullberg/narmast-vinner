@@ -44,6 +44,7 @@ export default function GamePage() {
   const [showResults, setShowResults] = useState(false)
   const [guesses, setGuesses] = useState<Guess[]>([])
   const [loading, setLoading] = useState(true)
+  const [waitingForResults, setWaitingForResults] = useState(false)
 
   // Get player ID from session
   useEffect(() => {
@@ -192,7 +193,9 @@ export default function GamePage() {
 
   // Timer logic - calculate based on server timestamp
   useEffect(() => {
-    if (game?.status !== 'playing' || game?.phase !== 'guessing' || hasGuessed || !game.phase_started_at) return
+    if (game?.status !== 'playing' || game?.phase !== 'guessing' || !game.phase_started_at) return
+
+    let bufferTriggered = false
 
     const updateTimer = () => {
       const startTime = new Date(game.phase_started_at!).getTime()
@@ -201,12 +204,17 @@ export default function GamePage() {
       const remaining = Math.max(0, 15 - elapsed)
       setTimeLeft(remaining)
 
-      // Auto-show results when timer expires
-      if (remaining === 0 && !showResults) {
-        // Small delay to ensure all auto-submissions complete
+      // Auto-show results when timer expires (only trigger once)
+      if (remaining === 0 && !bufferTriggered && !showResults && !waitingForResults) {
+        console.log('Timer expired, triggering 5-second buffer')
+        bufferTriggered = true
+        setWaitingForResults(true)
+        // 5 second buffer to ensure all auto-submissions sync across clients
         setTimeout(() => {
+          console.log('Buffer complete, showing results')
           setShowResults(true)
-        }, 1000)
+          setWaitingForResults(false)
+        }, 5000)
       }
     }
 
@@ -217,7 +225,7 @@ export default function GamePage() {
     const timer = setInterval(updateTimer, 100)
 
     return () => clearInterval(timer)
-  }, [game?.status, game?.phase, game?.current_round, game?.phase_started_at, hasGuessed, showResults])
+  }, [game?.status, game?.phase, game?.current_round, game?.phase_started_at, showResults, waitingForResults])
 
   // Check if all players have guessed (show results early if everyone is done)
   useEffect(() => {
@@ -245,6 +253,7 @@ export default function GamePage() {
     if (!game) return
     setShowResults(false)
     setHasGuessed(false)
+    setWaitingForResults(false)
   }, [game?.current_round])
 
   const isHost = playerId === game?.host_id
@@ -279,12 +288,22 @@ export default function GamePage() {
         )}
         {/* Sidebar */}
         <aside className="lg:w-80 space-y-4">
-          {game?.status === 'playing' && game?.phase === 'guessing' && !hasGuessed && (
+          {game?.status === 'playing' && game?.phase === 'guessing' && !waitingForResults && (
             <div className="bg-white rounded-lg shadow p-4">
               <div className="text-center">
                 <div className="text-sm text-gray-600 mb-1">Time left</div>
                 <div className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}>
                   {timeLeft}s
+                </div>
+              </div>
+            </div>
+          )}
+          {waitingForResults && (
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="text-center">
+                <div className="text-sm text-gray-600 mb-1">Väntar på svar</div>
+                <div className="flex items-center justify-center mt-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                 </div>
               </div>
             </div>
@@ -321,14 +340,26 @@ export default function GamePage() {
 
           {game?.status === 'playing' && currentEvent && game.phase === 'guessing' && !showResults && (
             <>
-              <MapComponent
-                gameId={game.id}
-                playerId={playerId!}
-                eventId={currentEvent.id}
-                round={game.current_round}
-                onGuess={() => setHasGuessed(true)}
-                disabled={hasGuessed || timeLeft === 0}
-              />
+              {waitingForResults && (
+                <div className="bg-white rounded-lg shadow p-8 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">Samlar in alla svar...</h3>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className={waitingForResults ? 'hidden' : ''}>
+                <MapComponent
+                  gameId={game.id}
+                  playerId={playerId!}
+                  eventId={currentEvent.id}
+                  round={game.current_round}
+                  onGuess={() => setHasGuessed(true)}
+                  disabled={hasGuessed || timeLeft === 0}
+                />
+              </div>
             </>
           )}
 
