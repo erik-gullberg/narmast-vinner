@@ -288,22 +288,12 @@ export default function GamePage() {
         )}
         {/* Sidebar */}
         <aside className="lg:w-80 space-y-4">
-          {game?.status === 'playing' && game?.phase === 'guessing' && !waitingForResults && (
+          {game?.status === 'playing' && game?.phase === 'guessing' && (
             <div className="bg-white rounded-lg shadow p-4">
               <div className="text-center">
                 <div className="text-sm text-gray-600 mb-1">Time left</div>
                 <div className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}>
                   {timeLeft}s
-                </div>
-              </div>
-            </div>
-          )}
-          {waitingForResults && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-center">
-                <div className="text-sm text-gray-600 mb-1">Väntar på svar</div>
-                <div className="flex items-center justify-center mt-2">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                 </div>
               </div>
             </div>
