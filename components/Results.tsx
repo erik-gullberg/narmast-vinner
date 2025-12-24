@@ -73,9 +73,6 @@ export default function Results({
 
   return (
     <div className="space-y-6">
-      {/* Event Details */}
-      <EventDisplay event={event} />
-
       <div className="bg-white rounded-xl shadow-xl overflow-hidden">
         {/* Event location reveal */}
         <div className="relative h-96 bg-gray-200">
@@ -172,7 +169,33 @@ export default function Results({
               </div>
             );
           })}
-          {sortedGuesses.length === 0 && (
+
+          {/* Show players who didn't guess */}
+          {players.filter(p => !guesses.find(g => g.player_id === p.id)).map((player) => (
+            <div
+              key={player.id}
+              className="flex items-center justify-between p-4 rounded-lg bg-gray-100 border border-gray-300 opacity-60"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl text-gray-400">-</span>
+                <div>
+                  <div className="font-semibold text-gray-600">
+                    {player.name}
+                  </div>
+                  <div className="text-sm text-gray-500 italic">
+                    Ingen gissning
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-bold text-gray-400">
+                  0 poäng
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {sortedGuesses.length === 0 && players.length === 0 && (
             <p className="text-gray-500 text-center py-4">
               No guesses submitted
             </p>

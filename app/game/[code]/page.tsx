@@ -200,6 +200,14 @@ export default function GamePage() {
       const elapsed = Math.floor((now - startTime) / 1000)
       const remaining = Math.max(0, 15 - elapsed)
       setTimeLeft(remaining)
+
+      // Auto-show results when timer expires
+      if (remaining === 0 && !showResults) {
+        // Small delay to ensure all auto-submissions complete
+        setTimeout(() => {
+          setShowResults(true)
+        }, 1000)
+      }
     }
 
     // Update immediately
@@ -209,11 +217,11 @@ export default function GamePage() {
     const timer = setInterval(updateTimer, 100)
 
     return () => clearInterval(timer)
-  }, [game?.status, game?.phase, game?.current_round, game?.phase_started_at, hasGuessed])
+  }, [game?.status, game?.phase, game?.current_round, game?.phase_started_at, hasGuessed, showResults])
 
-  // Check if all players have guessed
+  // Check if all players have guessed (show results early if everyone is done)
   useEffect(() => {
-    if (!game || game.status !== 'playing') return
+    if (!game || game.status !== 'playing' || game.phase !== 'guessing') return
 
     loadGuesses()
 

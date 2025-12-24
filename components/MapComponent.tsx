@@ -174,8 +174,13 @@ export default function MapComponent({
           <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[1000] pointer-events-none">
             <div className="bg-white rounded-lg p-4 text-center shadow-lg">
               <p className="font-semibold text-gray-900">
-                {hasPlacedPin ? 'Gissning skickad!' : 'Tyvärr, tiden är ute!'}
+                {hasPlacedPin ? 'Gissning skickad!' : 'Tiden är ute!'}
               </p>
+              {!hasPlacedPin && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Du fick inga poäng denna runda
+                </p>
+              )}
             </div>
           </div>
         )}
