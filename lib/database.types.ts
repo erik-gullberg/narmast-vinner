@@ -93,6 +93,7 @@ export type Database = {
           latitude: number
           longitude: number
           year: number
+          is_ai_generated: boolean | null
         }
         Insert: {
           id?: string
@@ -103,6 +104,7 @@ export type Database = {
           latitude: number
           longitude: number
           year: number
+          is_ai_generated?: boolean | null
         }
         Update: {
           id?: string
@@ -113,6 +115,7 @@ export type Database = {
           latitude?: number
           longitude?: number
           year?: number
+          is_ai_generated?: boolean | null
         }
         Relationships: []
       }

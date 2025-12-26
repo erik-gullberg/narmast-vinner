@@ -141,7 +141,7 @@ export default function GameControls({
           disabled={playersCount === 0 || starting}
           className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
-          {starting ? 'Starting...' : 'Start Game'}
+          {starting ? 'Startar...' : 'Starta'}
         </button>
       )}
 
@@ -152,7 +152,7 @@ export default function GameControls({
               onClick={startGuessing}
               className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
             >
-              Start Guessing
+              Börja gissa
             </button>
           )}
           {game.phase === 'guessing' && (
