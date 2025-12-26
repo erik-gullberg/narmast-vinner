@@ -316,7 +316,7 @@ export default function GamePage() {
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
+            <div className="bg-white rounded-lg shadow pt-8 pb-8 pl-2 pr-2 text-center">
               <h2 className="text-gray-600 text-2xl font-bold mb-4">Round {game.current_round}</h2>
               <p className="text-gray-600 mb-6">Study the image carefully!</p>
               <EventDisplay event={currentEvent} />

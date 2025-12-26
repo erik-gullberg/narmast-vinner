@@ -14,7 +14,8 @@ CREATE TABLE games (
   status TEXT CHECK (status IN ('waiting', 'playing', 'finished')) DEFAULT 'waiting',
   current_event_id UUID,
   phase TEXT CHECK (phase IN ('waiting', 'showing_image', 'guessing', 'revealing')) DEFAULT 'waiting',
-  phase_started_at TIMESTAMP WITH TIME ZONE
+  phase_started_at TIMESTAMP WITH TIME ZONE,
+  used_event_ids UUID[] DEFAULT '{}'
 );
 
 -- Players table

@@ -45,7 +45,7 @@ export default function GameControls({
 
       const randomEvent = events[Math.floor(Math.random() * events.length)]
 
-      // Update game status
+      // Update game status and initialize used_event_ids with the first event
       await supabase
         .from('games')
         .update({
@@ -53,6 +53,7 @@ export default function GameControls({
           current_round: 1,
           current_event_id: randomEvent.id,
           phase: 'showing_image',
+          used_event_ids: [randomEvent.id],
         })
         .eq('id', game.id)
     } catch (error) {
@@ -66,14 +67,15 @@ export default function GameControls({
     if (!game) return
 
     try {
-      // Get a random event (different from current)
+      const usedEventIds = game.used_event_ids || []
+
       const { data: events } = await supabase
         .from('events')
         .select('id')
-        .neq('id', game.current_event_id || '')
+        .not('id', 'in', `(${usedEventIds.join(',')})`)
 
       if (!events || events.length === 0) {
-        // No more events, end game
+        // No more unused events, end game
         await supabase
           .from('games')
           .update({ status: 'finished' })
@@ -83,12 +85,14 @@ export default function GameControls({
 
       const randomEvent = events[Math.floor(Math.random() * events.length)]
 
+      // Update game with new round and add event to used list
       await supabase
         .from('games')
         .update({
           current_round: game.current_round + 1,
           current_event_id: randomEvent.id,
           phase: 'showing_image',
+          used_event_ids: [...usedEventIds, randomEvent.id],
         })
         .eq('id', game.id)
     } catch (error) {

@@ -9,7 +9,6 @@ import {
   Polyline,
 } from "react-leaflet";
 import { Database } from "@/lib/database.types";
-import EventDisplay from "./EventDisplay";
 import L from "leaflet";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
