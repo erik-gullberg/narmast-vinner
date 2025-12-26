@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { generateGameCode } from '@/lib/utils'
+import { getAvailableColor } from '@/lib/colors'
 
 export default function Home() {
   const router = useRouter()
@@ -47,6 +48,7 @@ export default function Home() {
           game_id: game.id,
           name: playerName.trim(),
           score: 0,
+          color: getAvailableColor([]), // First player gets first available color
         })
 
       if (playerError) throw playerError
@@ -98,6 +100,14 @@ export default function Home() {
         return
       }
 
+      // Get existing players to determine used colors
+      const { data: existingPlayers } = await supabase
+        .from('players')
+        .select('color')
+        .eq('game_id', game.id)
+
+      const usedColors = existingPlayers?.map(p => p.color) || []
+
       // Add player
       const playerId = crypto.randomUUID()
       const { error: playerError } = await supabase
@@ -107,6 +117,7 @@ export default function Home() {
           game_id: game.id,
           name: playerName.trim(),
           score: 0,
+          color: getAvailableColor(usedColors),
         })
 
       if (playerError) throw playerError

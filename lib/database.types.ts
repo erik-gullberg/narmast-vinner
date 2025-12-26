@@ -55,6 +55,7 @@ export type Database = {
           game_id: string
           name: string
           score: number
+          color: string
         }
         Insert: {
           id?: string
@@ -62,6 +63,7 @@ export type Database = {
           game_id: string
           name: string
           score?: number
+          color?: string
         }
         Update: {
           id?: string
@@ -69,6 +71,7 @@ export type Database = {
           game_id?: string
           name?: string
           score?: number
+          color?: string
         }
         Relationships: [
           {

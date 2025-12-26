@@ -10,6 +10,7 @@ import {
 } from "react-leaflet";
 import { Database } from "@/lib/database.types";
 import L from "leaflet";
+import { createPlayerIcon, getColorStyle, getHexColor } from "@/lib/colors";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Guess = Database["public"]["Tables"]["guesses"]["Row"];
@@ -70,6 +71,11 @@ export default function Results({
     return player?.name || "Unknown";
   };
 
+  const getPlayerColor = (playerId: string) => {
+    const player = players.find((p) => p.id === playerId);
+    return player?.color || "blue";
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-xl overflow-hidden">
@@ -99,9 +105,15 @@ export default function Results({
               </Popup>
             </Marker>
             {/* All guesses markers */}
-            {guesses.map((guess) => (
+            {guesses.map((guess) => {
+              const playerColor = getPlayerColor(guess.player_id);
+              const playerIcon = createPlayerIcon(playerColor);
+
+              if (!playerIcon) return null;
+
+              return (
               <div key={guess.id}>
-                <Marker position={[guess.latitude, guess.longitude]}>
+                <Marker position={[guess.latitude, guess.longitude]} icon={playerIcon}>
                   <Popup>
                     <strong>{getPlayerName(guess.player_id)}</strong>
                     <br />
@@ -114,13 +126,13 @@ export default function Results({
                     [guess.latitude, guess.longitude],
                     [event.latitude, event.longitude],
                   ]}
-                  color="#3b82f6"
-                  weight={2}
-                  opacity={0.6}
+                  color={getHexColor(playerColor)}
+                  weight={3}
+                  opacity={0.7}
                   dashArray="5, 10"
                 />
               </div>
-            ))}
+            )})}
           </MapContainer>
         ) : (
           <div className="flex items-center justify-center h-full">
@@ -131,11 +143,12 @@ export default function Results({
 
       {/* Results table */}
       <div className="p-6">
-        <h3 className="font-bold text-xl mb-4">Round Results</h3>
+        <h3 className="font-bold text-xl mb-4">Resultat</h3>
         <div className="space-y-3">
           {sortedGuesses.map((guess, index) => {
             const points = Math.max(0, Math.round(1000 - guess.distance_km));
             const isWinner = index === 0;
+            const playerColor = getPlayerColor(guess.player_id);
 
             return (
               <div
@@ -151,12 +164,15 @@ export default function Results({
                     {index + 1}
                     {isWinner && "🏆"}
                   </span>
-                  <div>
-                    <div className="font-semibold text-gray-800">
-                      {getPlayerName(guess.player_id)}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {guess.distance_km.toFixed(0)} km ifrån
+                  <div className="flex items-center gap-2">
+                    <div style={getColorStyle(playerColor)} className="w-4 h-4 rounded-full border-2 border-white shadow-sm" title="Pin color" />
+                    <div>
+                      <div className="font-semibold text-gray-800">
+                        {getPlayerName(guess.player_id)}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {guess.distance_km.toFixed(0)} km ifrån
+                      </div>
                     </div>
                   </div>
                 </div>

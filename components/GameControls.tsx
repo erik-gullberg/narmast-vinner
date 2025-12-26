@@ -133,7 +133,7 @@ export default function GameControls({
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
-      <h3 className="font-bold text-lg mb-3 text-gray-800">Host Controls</h3>
+      <h3 className="font-bold text-lg mb-3 text-gray-800">Spelkontroller</h3>
 
       {game.status === 'waiting' && (
         <button
@@ -158,16 +158,10 @@ export default function GameControls({
           {game.phase === 'guessing' && (
             <>
               <button
-                onClick={onShowResults}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
-              >
-                Show Results
-              </button>
-              <button
                 onClick={nextRound}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
               >
-                Next Round
+                Nästa runda
               </button>
             </>
           )}
@@ -175,7 +169,7 @@ export default function GameControls({
             onClick={endGame}
             className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
           >
-            End Game
+            Avsluta spel
           </button>
         </div>
       )}

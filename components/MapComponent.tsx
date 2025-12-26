@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import { MapClickHandler } from './MapClickHandler'
 import { supabase } from '@/lib/supabase'
 import { calculateDistance } from '@/lib/utils'
+import { createPlayerIcon } from '@/lib/colors'
 
 interface MapComponentProps {
   gameId: string
@@ -20,12 +21,14 @@ function Map({
   onLocationClick,
   disabled,
   guessLat,
-  guessLon
+  guessLon,
+  playerIcon
 }: {
   onLocationClick: (lat: number, lng: number) => void
   disabled: boolean
   guessLat: number | null
   guessLon: number | null
+  playerIcon: any
 }) {
   return (
     <MapContainer
@@ -41,8 +44,8 @@ function Map({
         url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
       />
       <MapClickHandler onLocationClick={onLocationClick} disabled={disabled} />
-      {guessLat && guessLon && (
-        <Marker position={[guessLat, guessLon]} />
+      {guessLat && guessLon && playerIcon && (
+        <Marker position={[guessLat, guessLon]} icon={playerIcon} />
       )}
     </MapContainer>
   )
@@ -61,6 +64,52 @@ export default function MapComponent({
   const [hasPlacedPin, setHasPlacedPin] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [playerColor, setPlayerColor] = useState<string>('blue')
+  const [playerIcon, setPlayerIcon] = useState<any>(null)
+
+  // Fetch player color and subscribe to changes
+  useEffect(() => {
+    const fetchPlayerColor = async () => {
+      const { data } = await supabase
+        .from('players')
+        .select('color')
+        .eq('id', playerId)
+        .single()
+
+      if (data?.color) {
+        setPlayerColor(data.color)
+        const icon = createPlayerIcon(data.color)
+        setPlayerIcon(icon)
+      }
+    }
+
+    fetchPlayerColor()
+
+    // Subscribe to real-time color changes
+    const channel = supabase
+      .channel(`player-color:${playerId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'players',
+          filter: `id=eq.${playerId}`,
+        },
+        (payload: any) => {
+          if (payload.new?.color) {
+            setPlayerColor(payload.new.color)
+            const icon = createPlayerIcon(payload.new.color)
+            setPlayerIcon(icon)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [playerId])
 
   useEffect(() => {
     // Fix for default marker icons in Leaflet
@@ -179,6 +228,7 @@ export default function MapComponent({
           disabled={disabled}
           guessLat={guessLat}
           guessLon={guessLon}
+          playerIcon={playerIcon}
         />
         {disabled && (
           <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[1000] pointer-events-none">

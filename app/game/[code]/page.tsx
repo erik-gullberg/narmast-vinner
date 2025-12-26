@@ -289,7 +289,7 @@ export default function GamePage() {
           {game?.status === 'playing' && game?.phase === 'guessing' && (
             <div className="bg-white rounded-lg shadow p-4">
               <div className="text-center">
-                <div className="text-sm text-gray-600 mb-1">Time left</div>
+                <div className="text-sm text-gray-600 mb-1">Tid</div>
                 <div className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}>
                   {timeLeft}s
                 </div>
@@ -297,7 +297,7 @@ export default function GamePage() {
             </div>
           )}
           {(game?.status === 'waiting' || game?.status === 'finished') && (
-            <PlayerList players={players} currentPlayerId={playerId} />
+            <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status} />
           )}
         </aside>
 
@@ -307,28 +307,21 @@ export default function GamePage() {
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <h2 className="text-2xl font-bold mb-4">Waiting for players...</h2>
               <p className="text-gray-600 mb-4">
-                Share the game code <span className="font-mono font-bold text-xl">{gameCode}</span> with your friends!
-              </p>
-              <p className="text-sm text-gray-500">
-                {players.length} player{players.length !== 1 ? 's' : ''} joined
+                Dela spelkoden <span className="font-mono font-bold text-xl">{gameCode}</span> med dina vänner för att spela tilsammans!
               </p>
             </div>
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
             <div className="bg-white rounded-lg shadow pt-8 pb-8 pl-2 pr-2 text-center">
-              <h2 className="text-gray-600 text-2xl font-bold mb-4">Round {game.current_round}</h2>
-              <p className="text-gray-600 mb-6">Study the image carefully!</p>
+              <h2 className="text-gray-600 text-2xl font-bold mb-4">Runda {game.current_round}</h2>
               <EventDisplay event={currentEvent} />
-              {!isHost && (
-                <p className="text-gray-500 mt-6">Waiting for host to start guessing...</p>
-              )}
             </div>
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
               <div className="bg-white rounded-lg shadow pb-8 pl-2 pr-2 text-center">
-                <PlayerList players={players} currentPlayerId={playerId}/></div>
+                <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status}/></div>
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'guessing' && !showResults && (
@@ -372,7 +365,7 @@ export default function GamePage() {
           {game?.status === 'finished' && (
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <h2 className="text-black text-3xl font-bold mb-4">Game Over!</h2>
-              <h3 className="text-black text-xl mb-4">Final Scores</h3>
+              <h3 className="text-black text-xl mb-4">Slutpoäng</h3>
               <div className="space-y-2">
                 {players.map((player, index) => (
                   <div
@@ -390,7 +383,7 @@ export default function GamePage() {
                 onClick={() => router.push('/')}
                 className="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg"
               >
-                New Game
+                Starta nytt spel
               </button>
             </div>
           )}
