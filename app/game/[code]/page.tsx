@@ -278,7 +278,7 @@ export default function GamePage() {
       )}
 
       <div className="flex-1 flex flex-col lg:flex-row max-w-[1920px] mx-auto w-full p-4 gap-4">
-        {isHost && (
+        {isHost && game?.status !== 'finished' && (
             <GameControls
                 game={game}
                 playersCount={players.length}
@@ -297,7 +297,7 @@ export default function GamePage() {
               </div>
             </div>
           )}
-          {(game?.status === 'waiting' || game?.status === 'finished') && (
+          {game?.status === 'waiting' && (
             <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status} />
           )}
         </aside>
@@ -386,7 +386,7 @@ export default function GamePage() {
                 onClick={() => router.push('/')}
                 className="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg"
               >
-                Starta nytt spel
+                Tillbaka till start
               </button>
             </div>
           )}
