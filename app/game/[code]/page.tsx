@@ -129,15 +129,6 @@ export default function GamePage() {
     }
   }, [game])
 
-  const getMedal = (placement: number) => {
-    switch (placement) {
-      case 0: return '🥇'
-      case 1: return '🥈'
-      case 2: return '🥉'
-      default: return ''
-    }
-  }
-
   // Load players
   const loadPlayers = async () => {
     if (!game) return
@@ -180,6 +171,15 @@ export default function GamePage() {
 
     if (data && !error) {
       setGuesses(data)
+    }
+  }
+
+  const getMedal = (placement: number) => {
+    switch (placement) {
+      case 0: return '🥇'
+      case 1: return '🥈'
+      case 2: return '🥉'
+      default: return ''
     }
   }
 
@@ -314,12 +314,7 @@ export default function GamePage() {
 
           {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
             <div className="bg-white rounded-lg shadow pt-8 pb-8 pl-2 pr-2 text-center">
-              <h2 className="text-gray-600 text-2xl font-bold mb-4 flex items-center justify-center gap-2">
-                <span>Runda {game.current_round} {currentEvent.is_ai_generated ? '🤖' : ''}</span>              </h2>
-              {currentEvent?.is_ai_generated && (
-                  <p className="text-xs text-gray-500 mb-4">Denna rundan är genererad av AI
-                  </p>
-              )}
+              <h2 className="text-gray-600 text-2xl font-bold mb-4 flex items-center justify-center gap-2"></h2>
               <EventDisplay event={currentEvent} />
             </div>
           )}
