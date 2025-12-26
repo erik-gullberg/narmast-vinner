@@ -266,15 +266,16 @@ export default function GamePage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header */}
-      <header className="bg-white shadow-sm p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Närmast Vinner</h1>
-            <p className="text-sm text-gray-600">Game Code: <span className="font-mono font-bold">{gameCode}</span></p>
+      {game?.status !== 'playing' && (
+        <header className="bg-white shadow-sm p-4">
+          <div className="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Närmast Vinner</h1>
+              <p className="text-sm text-gray-600">Game Code: <span className="font-mono font-bold">{gameCode}</span></p>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <div className="flex-1 flex flex-col lg:flex-row max-w-[1920px] mx-auto w-full p-4 gap-4">
         {isHost && (
@@ -314,7 +315,9 @@ export default function GamePage() {
 
           {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
             <div className="bg-white rounded-lg shadow pt-8 pb-8 pl-2 pr-2 text-center">
-              <h2 className="text-gray-600 text-2xl font-bold mb-4 flex items-center justify-center gap-2"></h2>
+              <h2 className="text-gray-600 text-2xl font-bold mb-4 flex items-center justify-center gap-2">
+                <span>Runda {game.current_round}</span>
+              </h2>
               <EventDisplay event={currentEvent} />
             </div>
           )}
