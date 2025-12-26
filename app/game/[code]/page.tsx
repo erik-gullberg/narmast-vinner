@@ -296,7 +296,7 @@ export default function GamePage() {
               </div>
             </div>
           )}
-          {(game?.phase !== 'guessing' || game?.status === 'finished') && (
+          {(game?.status === 'waiting' || game?.status === 'finished') && (
             <PlayerList players={players} currentPlayerId={playerId} />
           )}
         </aside>
@@ -324,6 +324,11 @@ export default function GamePage() {
                 <p className="text-gray-500 mt-6">Waiting for host to start guessing...</p>
               )}
             </div>
+          )}
+
+          {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
+              <div className="bg-white rounded-lg shadow pb-8 pl-2 pr-2 text-center">
+                <PlayerList players={players} currentPlayerId={playerId}/></div>
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'guessing' && !showResults && (

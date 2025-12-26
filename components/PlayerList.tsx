@@ -12,7 +12,7 @@ interface PlayerListProps {
 export default function PlayerList({ players, currentPlayerId }: PlayerListProps) {
   return (
     <div className="bg-white rounded-lg shadow p-4">
-      <h3 className="font-bold text-lg mb-3 text-gray-800">Players</h3>
+      <h3 className="font-bold text-lg mb-3 text-gray-800">Spelare</h3>
       <div className="space-y-2">
         {players.map((player, index) => (
           <div

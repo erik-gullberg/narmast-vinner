@@ -25,6 +25,7 @@ export default function EventDisplay({ event }: EventDisplayProps) {
           fill
           className={isCover ? "object-cover" : "object-contain"}
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 100vw, (max-width: 1024px) 100vw, 100vw"
+          unoptimized={event.image_url.includes('wikimedia')}
         />
       </div>
     </div>

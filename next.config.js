@@ -27,7 +27,14 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'erikgullberg.se',
+        port: '',
+        pathname: '/**',
+      },
     ],
+    minimumCacheTTL: 31536000, // Cache for 1 year
   },
 }
 
