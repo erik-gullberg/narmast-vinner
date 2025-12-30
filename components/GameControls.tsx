@@ -19,6 +19,7 @@ export default function GameControls({
   onShowResults,
 }: GameControlsProps) {
   const [starting, setStarting] = useState(false)
+  const [showQuitConfirmation, setShowQuitConfirmation] = useState(false)
 
   const startGame = async () => {
     if (!game || playersCount === 0) return
@@ -124,6 +125,7 @@ export default function GameControls({
         .from('games')
         .update({ status: 'finished' })
         .eq('id', game.id)
+      setShowQuitConfirmation(false)
     } catch (error) {
       console.error('Error ending game:', error)
     }
@@ -146,7 +148,7 @@ export default function GameControls({
       )}
 
       {game.status === 'playing' && (
-        <div className="space-y-2">
+        <div className="space-y-4">
           {game.phase === 'showing_image' && (
             <button
               onClick={startGuessing}
@@ -158,6 +160,12 @@ export default function GameControls({
           {game.phase === 'guessing' && (
             <>
               <button
+                onClick={() => setShowQuitConfirmation(true)}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+              >
+                Avsluta spel
+              </button>
+              <button
                 onClick={nextRound}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
               >
@@ -165,12 +173,34 @@ export default function GameControls({
               </button>
             </>
           )}
-          <button
-            onClick={endGame}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
-          >
-            Avsluta spel
-          </button>
+        </div>
+      )}
+
+      {/* Quit confirmation dialog */}
+      {showQuitConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-3">
+              Avsluta spelet?
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Är du säker på att du vill avsluta? Spelet kommer avslutas för alla spelare.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowQuitConfirmation(false)}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-lg touch-manipulation"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={endGame}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+              >
+                Avsluta
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
