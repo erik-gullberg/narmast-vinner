@@ -271,7 +271,7 @@ export default function GamePage() {
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-800">Närmast Vinner</h1>
-              <p className="text-sm text-gray-600">Game Code: <span className="font-mono font-bold">{gameCode}</span></p>
+              <p className="text-sm text-gray-600">Spelkod: <span className="font-mono font-bold">{gameCode}</span></p>
             </div>
           </div>
         </header>

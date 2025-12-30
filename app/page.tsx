@@ -73,7 +73,7 @@ export default function Home() {
     }
 
     if (!gameCode.trim()) {
-      setError('Please enter a game code')
+      setError('Skriv in en spelkod')
       return
     }
 
