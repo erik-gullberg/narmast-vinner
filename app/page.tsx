@@ -100,11 +100,18 @@ export default function Home() {
         return
       }
 
-      // Get existing players to determine used colors
+      // Get existing players to check for duplicate names and determine used colors
       const { data: existingPlayers } = await supabase
         .from('players')
-        .select('color')
+        .select('name, color')
         .eq('game_id', game.id)
+
+      // Check if player name already exists in the game
+      if (existingPlayers?.some(p => p.name.toLowerCase() === playerName.trim().toLowerCase())) {
+        setError('Någon annan i spelet har redan detta namnet')
+        setLoading(false)
+        return
+      }
 
       const usedColors = existingPlayers?.map(p => p.color) || []
 
@@ -120,7 +127,16 @@ export default function Home() {
           color: getAvailableColor(usedColors),
         })
 
-      if (playerError) throw playerError
+      if (playerError) {
+        // Check if it's a unique constraint violation
+        if (playerError.message.includes('unique_player_name_per_game') ||
+            playerError.code === '23505') {
+          setError('Någon annan i spelet har redan detta namnet')
+          setLoading(false)
+          return
+        }
+        throw playerError
+      }
 
       // Store player ID in session
       sessionStorage.setItem('playerId', playerId)
