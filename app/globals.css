@@ -4,6 +4,38 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'SJ Sans';
+  src: url('/sj-sans-otf/sj-sans-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SJ Sans';
+  src: url('/sj-sans-otf/sj-sans-regular-italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SJ Sans';
+  src: url('/sj-sans-otf/sj-sans-medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SJ Sans';
+  src: url('/sj-sans-otf/sj-sans-bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;

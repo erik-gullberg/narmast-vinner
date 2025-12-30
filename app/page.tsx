@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { generateGameCode } from '@/lib/utils'
 import { getAvailableColor } from '@/lib/colors'
+import Image from "next/image";
 
 export default function Home() {
   const router = useRouter()
@@ -152,8 +153,9 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 pt-2 bg-gradient-to-br from-blue-50 to-indigo-100">
+      <Image className={'mb-2 animate-bounce [animation-duration:2s]'} src={'/te.png'} alt={'Logo'} width={80} height={80} />
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 relative">
         <h1 className="text-4xl font-bold text-center mb-2 text-gray-800">
           Närmast Vinner
         </h1>
