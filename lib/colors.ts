@@ -1,9 +1,9 @@
 // Available colors for players
 // These exactly match the available colors in leaflet-color-markers repository
+// Note: Red is reserved for the answer pin, so it's not available for players
 export const PLAYER_COLORS = [
   'blue',
   'gold',
-  'red',
   'green',
   'orange',
   'yellow',
