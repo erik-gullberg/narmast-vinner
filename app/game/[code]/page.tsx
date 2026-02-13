@@ -8,6 +8,7 @@ import { Database } from '@/lib/database.types'
 import EventDisplay from '@/components/EventDisplay'
 import PlayerList from '@/components/PlayerList'
 import GameControls from '@/components/GameControls'
+import Image from "next/image";
 
 
 const Results = dynamic(() => import('@/components/Results'), { ssr: false })
@@ -268,7 +269,8 @@ export default function GamePage() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {game?.status !== 'playing' && (
         <header className="bg-white shadow-sm p-4">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="gap-4 mx-auto flex items-center">
+            <Image src={'/te.png'} alt={'Närmast Vinner logotyp - geografispel'} width={40} height={40} />
             <div>
               <h1 className="text-2xl font-bold text-gray-800">Närmast Vinner</h1>
               <p className="text-sm text-gray-600">Spelkod: <span className="font-mono font-bold">{gameCode}</span></p>
@@ -305,12 +307,22 @@ export default function GamePage() {
         {/* Main content */}
         <main className="flex-1 flex flex-col gap-4">
           {game?.status === 'waiting' && (
+            <>
             <div className="bg-white rounded-lg shadow p-8 text-center">
-              <h2 className="text-2xl font-bold mb-4">Waiting for players...</h2>
+              <h2 className="text-gray-600 text-2xl font-bold mb-4">Väntar på att starta...</h2>
               <p className="text-gray-600 mb-4">
                 Dela spelkoden <span className="font-mono font-bold text-xl">{gameCode}</span> med dina vänner för att spela tilsammans!
               </p>
             </div>
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <h2 className="text-gray-600 text-xl font-bold mb-4">Regler</h2>
+                <ul>
+                  <li className={"text-gray-600"}>Spelare får se en bild av en händelse eller plats</li>
+                  <li className={"text-gray-600"}>Alla får 15 sekunder på sig att placera ut händelsen på en världskarta</li>
+                  <li className={"text-gray-600"}>1000 poäng för fullträff, 1 minuspoäng per km ifrån </li>
+                </ul>
+              </div>
+              </>
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
