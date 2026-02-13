@@ -4,5 +4,5 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://xn--nrmastvinner-bfb.se/sitemap.xml
+Sitemap: https://xn--nrmastvinner-gcb.se/sitemap.xml
 

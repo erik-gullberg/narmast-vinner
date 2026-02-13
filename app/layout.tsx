@@ -4,8 +4,8 @@ import './globals.css'
 const siteUrl = 'https://xn--nrmastvinner-bfb.se'
 
 export const metadata: Metadata = {
-  title: 'Närmast Vinner - Geografispel med vänner | Gissa på kartan',
-  description: 'Spela Närmast Vinner - det roliga geografispelet där du gissar var historiska händelser inträffade på kartan. Utmana dina vänner och se vem som kommer närmast! Gratis multiplayer-spel.',
+  title: 'Närmast Vinner - Multiplayer kartspel ',
+  description: 'Närmast Vinner - inspirerat av momentet i På Spåret. Gratis & multiplayer.',
   keywords: [
     'närmast vinner',
     'narmast vinner',
@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   creator: 'Närmast Vinner',
   publisher: 'Närmast Vinner',
   metadataBase: new URL(siteUrl),
+  icons: {
+    icon: '/favicon.ico',
+  },
   alternates: {
     canonical: '/',
   },
