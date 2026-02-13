@@ -270,7 +270,7 @@ export default function GamePage() {
       {game?.status !== 'playing' && (
         <header className="bg-white shadow-sm p-4">
           <div className="gap-4 mx-auto flex items-center">
-            <Image src={'/te.png'} alt={'Närmast Vinner logotyp - geografispel'} width={40} height={40} />
+            <Image src={'/logo.png'} alt={'Närmast Vinner logotyp - geografispel'} width={40} height={40} />
             <div>
               <h1 className="text-2xl font-bold text-gray-800">Närmast Vinner</h1>
               <p className="text-sm text-gray-600">Spelkod: <span className="font-mono font-bold">{gameCode}</span></p>
