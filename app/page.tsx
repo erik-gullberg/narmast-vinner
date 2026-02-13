@@ -154,13 +154,20 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4 pt-2 bg-gradient-to-br from-blue-50 to-indigo-100">
-      <Image className={'mb-2 animate-bounce [animation-duration:2s]'} src={'/te.png'} alt={'Logo'} width={80} height={80} />
+      <Image className={'mb-2 animate-bounce [animation-duration:2s]'} src={'/te.png'} alt={'Närmast Vinner logotyp - geografispel'} width={80} height={80} />
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 relative">
         <h1 className="text-4xl font-bold text-center mb-2 text-gray-800">
           Närmast Vinner
         </h1>
-        <p className="text-center text-gray-600 mb-8">
-          Totalt orginellt spel för folk som gillar kartor
+        <h2 className="text-center text-gray-600 mb-8">
+          Totalt originellt spel för folk som gillar kartor
+        </h2>
+        {/* Hidden SEO content for search engines - helps with alternative spellings */}
+        <p className="sr-only">
+          Välkommen till Närmast Vinner (Narmast Vinner) - geografispelet från på spåret
+          där du gissar var historiska händelser inträffade på kartan.
+          Spela gratis med vänner online.
+          Perfekt för spelkvällar och tävlingar. Fungerar på mobil, surfplatta och dator.
         </p>
 
         <div className="space-y-6">

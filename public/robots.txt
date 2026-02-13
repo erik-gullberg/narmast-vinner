@@ -1,0 +1,8 @@
+# Robots.txt for närmastvinner.se
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://xn--nrmastvinner-bfb.se/sitemap.xml
+
