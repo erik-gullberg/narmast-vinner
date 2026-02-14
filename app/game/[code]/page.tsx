@@ -326,11 +326,11 @@ export default function GamePage() {
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
-            <div className="bg-white rounded-lg shadow pt-8 pb-8 pl-2 pr-2 text-center">
+            <div key={`event-display-${currentEvent.id}`} className="bg-white rounded-lg shadow pt-8 pb-8 pl-2 pr-2 text-center">
               <h2 className="text-gray-600 text-2xl font-bold mb-4 flex items-center justify-center gap-2">
                 <span>Runda {game.current_round}</span>
               </h2>
-              <EventDisplay event={currentEvent} />
+              <EventDisplay key={currentEvent.id} event={currentEvent} />
             </div>
           )}
 
