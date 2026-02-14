@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     'närmast vinner',
     'narmast vinner',
     'på spåret',
+    'spel',
     'geografispel',
     'kartspel',
     'gissa på kartan',
