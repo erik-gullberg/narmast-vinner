@@ -68,6 +68,35 @@ export default function GameControls({
     if (!game) return
 
     try {
+      // Check if we've reached max_rounds (if set)
+      if (game.max_rounds !== null && game.current_round >= game.max_rounds) {
+        // Game is over, no more rounds
+        await supabase
+          .from('games')
+          .update({ status: 'finished' })
+          .eq('id', game.id)
+        return
+      }
+
+      // Check if someone has reached target_score (for closest_wins mode)
+      if (game.game_mode === 'closest_wins' && game.target_score !== null) {
+        const { data: players } = await supabase
+          .from('players')
+          .select('score')
+          .eq('game_id', game.id)
+          .gte('score', game.target_score)
+          .limit(1)
+
+        if (players && players.length > 0) {
+          // Someone reached the target score, end game
+          await supabase
+            .from('games')
+            .update({ status: 'finished' })
+            .eq('id', game.id)
+          return
+        }
+      }
+
       const usedEventIds = game.used_event_ids || []
 
       const { data: events } = await supabase
@@ -134,7 +163,7 @@ export default function GameControls({
   if (!game) return null
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className="bg-white rounded-lg shadow p-4 max-h-screen">
       <h3 className="font-bold text-lg mb-3 text-gray-800">Spelkontroller</h3>
 
       {game.status === 'waiting' && (

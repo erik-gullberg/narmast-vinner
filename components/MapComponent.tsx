@@ -187,19 +187,30 @@ export default function MapComponent({
         return
       }
 
-      const points = Math.max(0, Math.round(1000 - distance))
-
-      const { data: player } = await supabase
-        .from('players')
-        .select('score')
-        .eq('id', playerId)
+      // Get game mode to determine scoring behavior
+      const { data: game } = await supabase
+        .from('games')
+        .select('game_mode')
+        .eq('id', gameId)
         .single()
 
-      if (player) {
-        await supabase
+      // Only award points immediately for highscore mode
+      // For closest_wins mode, scoring happens after all guesses are in
+      if (game?.game_mode === 'highscore') {
+        const points = Math.max(0, Math.round(1000 - distance))
+
+        const { data: player } = await supabase
           .from('players')
-          .update({ score: player.score + points })
+          .select('score')
           .eq('id', playerId)
+          .single()
+
+        if (player) {
+          await supabase
+            .from('players')
+            .update({ score: player.score + points })
+            .eq('id', playerId)
+        }
       }
 
       onGuess()
@@ -221,7 +232,7 @@ export default function MapComponent({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-xl overflow-hidden flex flex-col touch-none h-[70vh] lg:h-[80vh] max-h-[900px]">
+    <div className="bg-white rounded-xl shadow-xl overflow-hidden flex flex-col touch-manipulation h-[70vh] lg:h-[80vh] max-h-[900px]">
       <div key={round} className="relative flex-1 h-full">
         <Map
           onLocationClick={handleMapClick}

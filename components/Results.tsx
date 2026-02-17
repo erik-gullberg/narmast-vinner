@@ -11,15 +11,18 @@ import {
 import { Database } from "@/lib/database.types";
 import L from "leaflet";
 import { createPlayerIcon, getColorStyle, getHexColor } from "@/lib/colors";
+import { supabase } from "@/lib/supabase";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Guess = Database["public"]["Tables"]["guesses"]["Row"];
 type Player = Database["public"]["Tables"]["players"]["Row"];
+type Game = Database["public"]["Tables"]["games"]["Row"];
 
 interface ResultsProps {
   event: Event;
   guesses: Guess[];
   players: Player[];
+  game: Game;
   isHost: boolean;
   onNextRound: () => void;
 }
@@ -35,10 +38,10 @@ export default function Results({
   event,
   guesses,
   players,
-  isHost,
-  onNextRound,
+  game,
 }: ResultsProps) {
   const [mounted, setMounted] = useState(false);
+  const [scoringDone, setScoringDone] = useState(false);
 
   useEffect(() => {
     // Fix for default marker icons in Leaflet
@@ -55,6 +58,37 @@ export default function Results({
     });
     setMounted(true);
   }, []);
+
+  // Award points for closest_wins mode
+  useEffect(() => {
+    if (game.game_mode === 'closest_wins' && guesses.length > 0 && !scoringDone) {
+      const awardPointsToClosest = async () => {
+        // Find the closest guess
+        const sortedGuesses = [...guesses].sort((a, b) => a.distance_km - b.distance_km);
+        const closestGuess = sortedGuesses[0];
+
+        if (closestGuess) {
+          // Award 1 point to the closest player
+          const { data: player } = await supabase
+            .from('players')
+            .select('score')
+            .eq('id', closestGuess.player_id)
+            .single();
+
+          if (player) {
+            await supabase
+              .from('players')
+              .update({ score: player.score + 1 })
+              .eq('id', closestGuess.player_id);
+          }
+        }
+
+        setScoringDone(true);
+      };
+
+      awardPointsToClosest();
+    }
+  }, [game.game_mode, guesses, scoringDone]);
 
   // Sort guesses by distance (closest first)
   const sortedGuesses = [...guesses].sort(
@@ -141,9 +175,16 @@ export default function Results({
         <h3 className="font-bold text-xl mb-4">Resultat</h3>
         <div className="space-y-3">
           {sortedGuesses.map((guess, index) => {
-            const points = Math.max(0, Math.round(1000 - guess.distance_km));
             const isWinner = index === 0;
             const playerColor = getPlayerColor(guess.player_id);
+
+            // Calculate points based on game mode
+            let points: number;
+            if (game.game_mode === 'closest_wins') {
+              points = isWinner ? 1 : 0;
+            } else {
+              points = Math.max(0, Math.round(1000 - guess.distance_km));
+            }
 
             return (
               <div

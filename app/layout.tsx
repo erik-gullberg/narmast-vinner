@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     locale: 'sv_SE',
     url: siteUrl,
     siteName: 'Närmast Vinner',
-    title: 'Närmast Vinner - Geografispel med vänner',
+    title: 'Närmast Vinner - Multiplayer geografispel',
     description: 'Gissa var historiska händelser inträffade på kartan. Utmana dina vänner och se vem som kommer närmast!',
   },
   twitter: {

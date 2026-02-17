@@ -41,15 +41,31 @@
   --background-rgb: 255, 255, 255;
 }
 
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-rgb));
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
 }
 
-/* Mobile-friendly styles */
 @layer utilities {
   .touch-manipulation {
     touch-action: manipulation;
   }
+}
+
+.leaflet-container {
+  touch-action: none; /* Let Leaflet handle all touch events */
+}
+
+.leaflet-control-zoom a,
+.leaflet-control a {
+  touch-action: manipulation;
 }
 

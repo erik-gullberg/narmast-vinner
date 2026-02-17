@@ -14,59 +14,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const createGame = async () => {
-    if (!playerName.trim()) {
-      setError('Skriv in ditt namn')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-
-    try {
-      const code = generateGameCode()
-      const hostId = crypto.randomUUID()
-
-      // Create game
-      const { data: game, error: gameError } = await supabase
-        .from('games')
-        .insert({
-          code,
-          host_id: hostId,
-          status: 'waiting',
-          current_round: 0,
-        })
-        .select()
-        .single()
-
-      if (gameError) throw gameError
-
-      // Add host as first player
-      const { error: playerError } = await supabase
-        .from('players')
-        .insert({
-          id: hostId,
-          game_id: game.id,
-          name: playerName.trim(),
-          score: 0,
-          color: getAvailableColor([]), // First player gets first available color
-        })
-
-      if (playerError) throw playerError
-
-      // Store player ID in session
-      sessionStorage.setItem('playerId', hostId)
-      sessionStorage.setItem('playerName', playerName.trim())
-
-      router.push(`/game/${code}`)
-    } catch (err) {
-      console.error('Error creating game:', err)
-      setError('Failed to create game. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const joinGame = async () => {
     if (!playerName.trim()) {
       setError('Skriv in ditt namn')
@@ -162,7 +109,7 @@ export default function Home() {
           Närmast Vinner
         </h1>
         <h2 className="text-center text-gray-600 mb-8">
-          Totalt originellt spel för folk som gillar kartor
+          Gissa var händelser och platser inträffade på kartan & utmana dina vänner!
         </h2>
         {/* Hidden SEO content for search engines - helps with alternative spellings */}
         <p className="sr-only">
@@ -227,11 +174,10 @@ export default function Home() {
 
 
         <button
-            onClick={createGame}
-            disabled={loading}
-            className="mt-2.5 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+            onClick={() => router.push('/create')}
+            className="mt-2.5 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors touch-manipulation"
         >
-          {loading ? 'Skapar...' : 'Skapa nytt spel'}
+          Skapa nytt spel
         </button>
       </div>
     </main>

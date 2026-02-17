@@ -21,6 +21,10 @@ export type Database = {
           phase: 'waiting' | 'showing_image' | 'guessing' | 'revealing'
           phase_started_at: string | null
           used_event_ids: string[]
+          game_mode: 'highscore' | 'closest_wins'
+          max_rounds: number | null
+          target_score: number | null
+          guess_time_seconds: number
         }
         Insert: {
           id?: string
@@ -33,6 +37,10 @@ export type Database = {
           phase?: 'waiting' | 'showing_image' | 'guessing' | 'revealing'
           phase_started_at?: string | null
           used_event_ids?: string[]
+          game_mode?: 'highscore' | 'closest_wins'
+          max_rounds?: number | null
+          target_score?: number | null
+          guess_time_seconds?: number
         }
         Update: {
           id?: string
@@ -45,6 +53,10 @@ export type Database = {
           phase?: 'waiting' | 'showing_image' | 'guessing' | 'revealing'
           phase_started_at?: string | null
           used_event_ids?: string[]
+          game_mode?: 'highscore' | 'closest_wins'
+          max_rounds?: number | null
+          target_score?: number | null
+          guess_time_seconds?: number
         }
         Relationships: []
       }

@@ -196,13 +196,14 @@ export default function GamePage() {
   useEffect(() => {
     if (game?.status !== 'playing' || game?.phase !== 'guessing' || !game.phase_started_at) return
 
+    const guessTimeLimit = game.guess_time_seconds || 15
     let bufferTriggered = false
 
     const updateTimer = () => {
       const startTime = new Date(game.phase_started_at!).getTime()
       const now = Date.now()
       const elapsed = Math.floor((now - startTime) / 1000)
-      const remaining = Math.max(0, 15 - elapsed)
+      const remaining = Math.max(0, guessTimeLimit - elapsed)
       setTimeLeft(remaining)
 
       // Auto-show results when timer expires (only trigger once)
@@ -224,7 +225,7 @@ export default function GamePage() {
     const timer = setInterval(updateTimer, 100)
 
     return () => clearInterval(timer)
-  }, [game?.status, game?.phase, game?.current_round, game?.phase_started_at, showResults, waitingForResults])
+  }, [game?.status, game?.phase, game?.current_round, game?.phase_started_at, game?.guess_time_seconds, showResults, waitingForResults])
 
   // Check if all players have guessed (show results early if everyone is done)
   useEffect(() => {
@@ -316,11 +317,20 @@ export default function GamePage() {
             </div>
               <div className="bg-white rounded-lg shadow p-8 text-center">
                 <h2 className="text-gray-600 text-xl font-bold mb-4">Regler</h2>
-                <ul>
-                  <li className={"text-gray-600"}>Spelare får se en bild av en händelse eller plats</li>
-                  <li className={"text-gray-600"}>Alla får 15 sekunder på sig att placera ut händelsen på en världskarta</li>
-                  <li className={"text-gray-600"}>1000 poäng för fullträff, 1 minuspoäng per km ifrån </li>
-                </ul>
+                {game.game_mode === 'highscore' ? (
+                  <ul className="text-center space-y-2">
+                    <li className={"text-gray-600"}>• Spelare får se en bild av en händelse eller plats</li>
+                    <li className={"text-gray-600"}>• Alla får {game.guess_time_seconds || 15} sekunder på sig att placera ut händelsen på en världskarta</li>
+                    <li className={"text-gray-600"}>• 1000 poäng för fullträff, minus 1 poäng per kilometer ifrån målet</li>
+                  </ul>
+                ) : (
+                  <ul className="text-center space-y-2">
+                    <li className={"text-gray-600"}>• Spelare får se en bild av en händelse eller plats</li>
+                    <li className={"text-gray-600"}>• Alla får {game.guess_time_seconds || 15} sekunder på sig att placera ut händelsen på en världskarta</li>
+                    <li className={"text-gray-600"}>• Endast spelaren som gissar närmast får 1 poäng</li>
+                    <li className={"text-gray-600"}>• Först till {game.target_score || 'obegränsat'} poäng vinner!</li>
+                  </ul>
+                )}
               </div>
               </>
           )}
@@ -364,11 +374,12 @@ export default function GamePage() {
             </>
           )}
 
-          {showResults && currentEvent && game?.status !== 'finished' && (
+          {showResults && currentEvent && game && game.status !== 'finished' && (
             <Results
               event={currentEvent}
               guesses={guesses}
               players={players}
+              game={game}
               isHost={isHost}
               onNextRound={() => {
                 setShowResults(false)
