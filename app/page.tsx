@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { generateGameCode } from '@/lib/utils'
 import { getAvailableColor } from '@/lib/colors'
 import Image from "next/image";
+import KofiButton from '@/components/KofiButton';
 
 export default function Home() {
   const router = useRouter()
@@ -102,7 +102,7 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4 pt-2 bg-gradient-to-br from-blue-50 to-indigo-100">
       <Image
-        className={'mb-4 animate-bounce [animation-duration:2s]'} src={'/logo.png'} alt={'Närmast Vinner logotyp - geografispel'} width={80} height={80} unoptimized
+        className={'mt-8 mb-4 animate-bounce [animation-duration:2s]'} src={'/logo.png'} alt={'Närmast Vinner logotyp - geografispel'} width={80} height={80} unoptimized
       />
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 relative">
         <h1 className="text-4xl font-bold text-center mb-2 text-gray-800">
@@ -179,6 +179,9 @@ export default function Home() {
         >
           Skapa nytt spel
         </button>
+      </div>
+      <div className="mt-6 flex justify-center">
+        <KofiButton />
       </div>
     </main>
   )
