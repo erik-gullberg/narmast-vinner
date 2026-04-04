@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -42,6 +42,8 @@ export default function Results({
 }: ResultsProps) {
   const [mounted, setMounted] = useState(false);
   const [scoringDone, setScoringDone] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fix for default marker icons in Leaflet
@@ -172,6 +174,29 @@ export default function Results({
 
       {/* Results table */}
       <div className="p-6">
+        {/* Event title and optional description */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-2xl font-bold text-gray-900">{event.title}</h2>
+            {event.description && (
+              <button
+                onClick={() => setShowDescription((v) => !v)}
+                className="touch-manipulation flex-shrink-0 text-sm text-indigo-600 font-semibold hover:text-indigo-800 transition-colors"
+              >
+                {showDescription ? 'Dölj beskrivning' : 'Visa beskrivning'}
+              </button>
+            )}
+          </div>
+          {showDescription && event.description && (
+            <div
+              ref={descriptionRef}
+              className="mt-3 text-gray-600 text-sm leading-relaxed border-t pt-3"
+            >
+              {event.description}
+            </div>
+          )}
+        </div>
+
         <h3 className="font-bold text-xl mb-4">Resultat</h3>
         <div className="space-y-3">
           {sortedGuesses.map((guess, index) => {

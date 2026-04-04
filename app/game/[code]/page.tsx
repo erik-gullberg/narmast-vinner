@@ -290,7 +290,7 @@ export default function GamePage() {
         )}
         {/* Sidebar */}
         <aside className="lg:w-80 space-y-4">
-          {game?.status === 'playing' && game?.phase === 'guessing' && (
+          {game?.status === 'playing' && game?.phase === 'guessing' && !showResults && !waitingForResults && (
             <div className="bg-white rounded-lg shadow p-4">
               <div className="text-center">
                 <div className="text-sm text-gray-600 mb-1">Tid</div>
