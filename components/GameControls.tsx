@@ -29,8 +29,8 @@ async function imageIsReachable(url: string): Promise<boolean> {
  * Falls back to the first candidate if all checks fail (better than nothing).
  */
 async function pickReachableEvent(
-  candidates: { id: number }[]
-): Promise<{ id: number } | null> {
+  candidates: { id: string }[]
+): Promise<{ id: string } | null> {
   if (candidates.length === 0) return null
 
   // Shuffle so repeated calls don't always try the same order
