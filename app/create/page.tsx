@@ -270,6 +270,7 @@ export default function CreateGamePage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               placeholder="Skriv in ditt namn"
               maxLength={20}
+              autoComplete="off"
             />
           </div>
 
