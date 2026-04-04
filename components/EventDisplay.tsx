@@ -1,7 +1,6 @@
 'use client'
 
 import { Database } from '@/lib/database.types'
-import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 
 type Event = Database['public']['Tables']['events']['Row']
@@ -73,18 +72,13 @@ export default function EventDisplay({ event }: EventDisplayProps) {
         )}
 
         {!hasError && (
-          <Image
+          <img
             ref={imgRef}
             src={event.image_url}
             alt={event.title}
-            fill
-            priority
-            className={`${isCover ? 'object-cover' : 'object-contain'} transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-            sizes="100vw"
-            unoptimized
+            className={`absolute inset-0 w-full h-full ${isCover ? 'object-cover' : 'object-contain'} transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
             onLoad={() => setIsLoading(false)}
             onError={() => { setIsLoading(false); setHasError(true) }}
-            fetchPriority="high"
           />
         )}
       </div>

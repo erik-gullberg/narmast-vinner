@@ -13,6 +13,46 @@ interface GameControlsProps {
   onShowResults: () => void
 }
 
+/** Returns true if the image URL can actually be fetched (not broken/403/etc.) */
+async function imageIsReachable(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/**
+ * From a pool of candidate event IDs, fetch each event's image_url in order
+ * and return the first event whose image responds with a 2xx.
+ * Falls back to the first candidate if all checks fail (better than nothing).
+ */
+async function pickReachableEvent(
+  candidates: { id: number }[]
+): Promise<{ id: number } | null> {
+  if (candidates.length === 0) return null
+
+  // Shuffle so repeated calls don't always try the same order
+  const shuffled = [...candidates].sort(() => Math.random() - 0.5)
+
+  for (const candidate of shuffled) {
+    const { data: event } = await supabase
+      .from('events')
+      .select('id, image_url')
+      .eq('id', candidate.id)
+      .single()
+
+    if (!event) continue
+
+    const ok = await imageIsReachable(event.image_url)
+    if (ok) return { id: event.id }
+  }
+
+  // All images failed — return a random candidate anyway so the game isn't stuck
+  return shuffled[0]
+}
+
 export default function GameControls({
   game,
   playersCount,
@@ -44,7 +84,8 @@ export default function GameControls({
 
       if (!events || events.length === 0) return
 
-      const randomEvent = events[Math.floor(Math.random() * events.length)]
+      const chosenEvent = await pickReachableEvent(events)
+      if (!chosenEvent) return
 
       // Update game status and initialize used_event_ids with the first event
       await supabase
@@ -52,9 +93,9 @@ export default function GameControls({
         .update({
           status: 'playing',
           current_round: 1,
-          current_event_id: randomEvent.id,
+          current_event_id: chosenEvent.id,
           phase: 'showing_image',
-          used_event_ids: [randomEvent.id],
+          used_event_ids: [chosenEvent.id],
         })
         .eq('id', game.id)
     } catch (error) {
