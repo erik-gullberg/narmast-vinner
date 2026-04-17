@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/lib/database.types'
@@ -46,6 +46,7 @@ export default function GamePage() {
   const [guesses, setGuesses] = useState<Guess[]>([])
   const [loading, setLoading] = useState(true)
   const [waitingForResults, setWaitingForResults] = useState(false)
+  const resultsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Get player ID from session
   useEffect(() => {
@@ -211,7 +212,7 @@ export default function GamePage() {
         bufferTriggered = true
         setWaitingForResults(true)
         // 5 second buffer to ensure all auto-submissions sync across clients
-        setTimeout(() => {
+        resultsTimerRef.current = setTimeout(() => {
           setShowResults(true)
           setWaitingForResults(false)
         }, 5000)
@@ -251,6 +252,10 @@ export default function GamePage() {
   // Reset view when round changes
   useEffect(() => {
     if (!game) return
+    if (resultsTimerRef.current) {
+      clearTimeout(resultsTimerRef.current)
+      resultsTimerRef.current = null
+    }
     setShowResults(false)
     setHasGuessed(false)
     setWaitingForResults(false)
