@@ -287,15 +287,28 @@ export default function GamePage() {
 
       <div className="flex-1 flex flex-col lg:flex-row max-w-[1920px] mx-auto w-full p-4 gap-4">
         {isHost && game?.status !== 'finished' && (
+          <div className="lg:self-start space-y-4">
             <GameControls
                 game={game}
                 playersCount={players.length}
                 onShowResults={() => setShowResults(true)}
             />
+            {game?.status === 'playing' && game?.phase === 'guessing' && !showResults && !waitingForResults && (
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="text-center">
+                  <div className="text-sm text-gray-600 mb-1">Tid</div>
+                  <div className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}>
+                    {timeLeft}s
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
-        {/* Sidebar */}
+        {/* Sidebar - only rendered when it has content */}
+        {((game?.status === 'playing' && !isHost && game?.phase === 'guessing' && !showResults && !waitingForResults) || game?.status === 'waiting') && (
         <aside className="lg:w-80 space-y-4">
-          {game?.status === 'playing' && game?.phase === 'guessing' && !showResults && !waitingForResults && (
+          {game?.status === 'playing' && !isHost && game?.phase === 'guessing' && !showResults && !waitingForResults && (
             <div className="bg-white rounded-lg shadow p-4">
               <div className="text-center">
                 <div className="text-sm text-gray-600 mb-1">Tid</div>
@@ -309,6 +322,7 @@ export default function GamePage() {
             <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status} />
           )}
         </aside>
+        )}
 
         {/* Main content */}
         <main className="flex-1 flex flex-col gap-4">
@@ -350,8 +364,7 @@ export default function GamePage() {
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
-              <div className="bg-white rounded-lg shadow pb-8 pl-2 pr-2 text-center">
-                <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status}/></div>
+              <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status}/>
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'guessing' && !showResults && (
@@ -394,19 +407,21 @@ export default function GamePage() {
           )}
 
           {game?.status === 'finished' && (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <h2 className="text-black text-3xl font-bold mb-4">Game Over!</h2>
-              <h3 className="text-black text-xl mb-4">Slutpoäng</h3>
-              <div className="space-y-2">
+            <div className="bg-white rounded-lg shadow p-8 text-center flex flex-col items-center">
+              <h2 className="text-black text-3xl font-bold mb-2">🏁 Game Over!</h2>
+              <h3 className="text-black text-xl mb-6">Slutpoäng</h3>
+              <div className="space-y-3 w-full max-w-md">
                 {players.map((player, index) => (
                   <div
                     key={player.id}
-                    className="flex justify-between items-center p-3 bg-gray-50 rounded"
+                    className={`flex justify-between items-center p-4 rounded-lg ${
+                      index === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-gray-50'
+                    }`}
                   >
                     <span className="text-black font-semibold">
                       {getMedal(index)} {index + 1}. {player.name}
                     </span>
-                    <span className="text-indigo-600 font-bold">{player.score} points</span>
+                    <span className="text-indigo-600 font-bold">{player.score} poäng</span>
                   </div>
                 ))}
               </div>

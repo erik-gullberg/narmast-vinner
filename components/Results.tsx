@@ -111,7 +111,7 @@ export default function Results({
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-xl overflow-hidden">
         {/* Event location reveal */}
-        <div className="relative h-96 bg-gray-200">
+        <div className="relative h-96 lg:h-[32rem] xl:h-[36rem] bg-gray-200">
         {mounted ? (
           <MapContainer
             center={[event.latitude, event.longitude]}
