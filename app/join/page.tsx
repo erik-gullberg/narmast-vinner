@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getAvailableColor } from '@/lib/colors'
-import Image from 'next/image'
 
 export default function JoinGamePage() {
   const router = useRouter()
@@ -94,13 +93,12 @@ export default function JoinGamePage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4 pt-2 bg-gradient-to-br from-blue-50 to-indigo-100">
-      <Image
+      <img
         className="mt-8 mb-4 animate-bounce [animation-duration:2s]"
         src="/logo.png"
         alt="Närmast Vinner logotyp - geografispel"
         width={80}
         height={80}
-        unoptimized
       />
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div className="mb-6">

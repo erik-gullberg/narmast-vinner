@@ -5,7 +5,6 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { generateGameCode } from '@/lib/utils'
 import { getAvailableColor } from '@/lib/colors'
-import Image from 'next/image'
 
 type GameMode = 'highscore' | 'closest_wins'
 type GameLength = 'kort' | 'medel' | 'lang' | 'maraton'
@@ -96,7 +95,6 @@ export default function CreateGamePage() {
     } catch (err) {
       console.error('Error creating game:', err)
       setError('Failed to create game. Please try again.')
-    } finally {
       setLoading(false)
     }
   }
@@ -113,13 +111,12 @@ export default function CreateGamePage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4 pt-2 bg-gradient-to-br from-blue-50 to-indigo-100">
-      <Image
+      <img
         className="mt-8 mb-4 animate-bounce [animation-duration:2s]"
         src="/logo.png"
         alt="Närmast Vinner logotyp - geografispel"
         width={80}
         height={80}
-        unoptimized
       />
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div className="mb-6">
@@ -293,9 +290,17 @@ export default function CreateGamePage() {
           <button
             onClick={createGame}
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation flex items-center justify-center gap-2"
           >
-            {loading ? 'Skapar spel...' : 'Skapa Spel'}
+            {loading ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Skapar spel...
+              </>
+            ) : 'Skapa Spel'}
           </button>
         </div>
       </div>
