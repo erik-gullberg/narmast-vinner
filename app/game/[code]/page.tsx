@@ -47,15 +47,25 @@ export default function GamePage() {
   const [waitingForResults, setWaitingForResults] = useState(false)
   const resultsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Get player ID from session
+  // Get player ID from session or localStorage (rejoin after refresh/tab close)
   useEffect(() => {
-    const id = sessionStorage.getItem('playerId')
+    let id = sessionStorage.getItem('playerId')
+    if (!id && gameCode) {
+      // Try to restore from localStorage (persists across tab closes)
+      const storedId = localStorage.getItem(`playerId_${gameCode.toUpperCase()}`)
+      if (storedId) {
+        id = storedId
+        sessionStorage.setItem('playerId', id)
+        const storedName = localStorage.getItem(`playerName_${gameCode.toUpperCase()}`)
+        if (storedName) sessionStorage.setItem('playerName', storedName)
+      }
+    }
     if (!id) {
       router.push('/')
       return
     }
     setPlayerId(id)
-  }, [router])
+  }, [router, gameCode])
 
   // Load game data
   useEffect(() => {

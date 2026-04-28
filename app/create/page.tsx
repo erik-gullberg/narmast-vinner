@@ -90,6 +90,8 @@ export default function CreateGamePage() {
       // Store player ID in session
       sessionStorage.setItem('playerId', hostId)
       sessionStorage.setItem('playerName', playerName.trim())
+      localStorage.setItem(`playerId_${code}`, hostId)
+      localStorage.setItem(`playerName_${code}`, playerName.trim())
 
       router.push(`/game/${code}`)
     } catch (err) {

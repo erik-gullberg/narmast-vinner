@@ -81,6 +81,8 @@ export default function JoinGamePage() {
 
       sessionStorage.setItem('playerId', playerId)
       sessionStorage.setItem('playerName', playerName.trim())
+      localStorage.setItem(`playerId_${gameCode.toUpperCase()}`, playerId)
+      localStorage.setItem(`playerName_${gameCode.toUpperCase()}`, playerName.trim())
 
       router.push(`/game/${gameCode.toUpperCase()}`)
     } catch (err) {
