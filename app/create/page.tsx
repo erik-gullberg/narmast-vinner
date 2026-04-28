@@ -96,7 +96,7 @@ export default function CreateGamePage() {
       router.push(`/game/${code}`)
     } catch (err) {
       console.error('Error creating game:', err)
-      setError('Failed to create game. Please try again.')
+      setError('Det gick inte att skapa spelet. Försök igen.')
       setLoading(false)
     }
   }
@@ -134,7 +134,7 @@ export default function CreateGamePage() {
           Skapa Nytt Spel
         </h1>
 
-        <div className="space-y-6 mt-2">
+        <div className="space-y-6 mt-2" onKeyDown={(e) => { if (e.key === 'Enter' && !loading) createGame() }}>
           {/* Game Mode Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">

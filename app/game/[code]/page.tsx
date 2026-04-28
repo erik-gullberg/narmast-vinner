@@ -18,7 +18,7 @@ const MapComponent = dynamic(() => import('@/components/MapComponent'), {
     <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col">
       <div className="relative flex-1" style={{ minHeight: '500px', height: '75vh' }}>
         <div className="flex items-center justify-center h-full">
-          <p className="text-gray-500">Loading map...</p>
+          <p className="text-gray-500">Laddar karta...</p>
         </div>
       </div>
     </div>
@@ -258,7 +258,7 @@ export default function GamePage() {
     checkAllGuessed()
   }, [guesses.length, players.length, game])
 
-  // Reset view when round changes
+  // Reset view when round changes & check if player already guessed this round
   useEffect(() => {
     if (!game) return
     if (resultsTimerRef.current) {
@@ -268,6 +268,20 @@ export default function GamePage() {
     setShowResults(false)
     setHasGuessed(false)
     setWaitingForResults(false)
+
+    // Check if player already submitted a guess for this round (e.g. after refresh)
+    if (playerId && game.id && game.current_round > 0) {
+      supabase
+        .from('guesses')
+        .select('id')
+        .eq('game_id', game.id)
+        .eq('player_id', playerId)
+        .eq('round', game.current_round)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setHasGuessed(true)
+        })
+    }
   }, [game?.current_round])
 
   const isHost = playerId === game?.host_id
@@ -275,7 +289,7 @@ export default function GamePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading game...</div>
+        <div className="text-xl">Laddar spel...</div>
       </div>
     )
   }
@@ -340,7 +354,7 @@ export default function GamePage() {
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <h2 className="text-gray-600 text-2xl font-bold mb-4">Väntar på att starta...</h2>
               <p className="text-gray-600 mb-4">
-                Dela spelkoden <span className="font-mono font-bold text-xl">{gameCode}</span> med dina vänner för att spela tilsammans!
+                Dela spelkoden <span className="font-mono font-bold text-xl">{gameCode}</span> med dina vänner för att spela tillsammans!
               </p>
             </div>
               <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -417,7 +431,7 @@ export default function GamePage() {
 
           {game?.status === 'finished' && (
             <div className="bg-white rounded-lg shadow p-8 text-center flex flex-col items-center">
-              <h2 className="text-black text-3xl font-bold mb-2">🏁 Game Over!</h2>
+              <h2 className="text-black text-3xl font-bold mb-2">🏁 Spelet är slut!</h2>
               <h3 className="text-black text-xl mb-6">Slutpoäng</h3>
               <div className="space-y-3 w-full max-w-md">
                 {players.map((player, index) => (

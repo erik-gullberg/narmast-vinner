@@ -1,16 +1,22 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getAvailableColor } from '@/lib/colors'
 
-export default function JoinGamePage() {
+function JoinGameForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [playerName, setPlayerName] = useState('')
   const [gameCode, setGameCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const code = searchParams.get('code')
+    if (code) setGameCode(code.toUpperCase())
+  }, [searchParams])
 
   const joinGame = async () => {
     if (!playerName.trim()) {
@@ -116,7 +122,7 @@ export default function JoinGamePage() {
           Gå med i spel
         </h1>
 
-        <div className="space-y-6 mt-2">
+        <div className="space-y-6 mt-2" onKeyDown={(e) => { if (e.key === 'Enter' && !loading) joinGame() }}>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Spelarnamn
@@ -167,3 +173,10 @@ export default function JoinGamePage() {
   )
 }
 
+export default function JoinGamePage() {
+  return (
+    <Suspense>
+      <JoinGameForm />
+    </Suspense>
+  )
+}

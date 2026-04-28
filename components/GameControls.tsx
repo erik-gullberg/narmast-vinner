@@ -153,16 +153,24 @@ export default function GameControls({
         return
       }
 
-      const randomEvent = events[Math.floor(Math.random() * events.length)]
+      const chosenEvent = await pickReachableEvent(events)
+      if (!chosenEvent) {
+        // No reachable events, end game
+        await supabase
+          .from('games')
+          .update({ status: 'finished' })
+          .eq('id', game.id)
+        return
+      }
 
       // Update game with new round and add event to used list
       await supabase
         .from('games')
         .update({
           current_round: game.current_round + 1,
-          current_event_id: randomEvent.id,
+          current_event_id: chosenEvent.id,
           phase: 'showing_image',
-          used_event_ids: [...usedEventIds, randomEvent.id],
+          used_event_ids: [...usedEventIds, chosenEvent.id],
         })
         .eq('id', game.id)
     } catch (error) {

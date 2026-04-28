@@ -61,7 +61,7 @@ export default function PlayerList({ players, currentPlayerId, gameStatus }: Pla
                     className={`w-4 h-4 rounded-full border-1 border-white shadow-sm flex-shrink-0 ${
                       isCurrentPlayer && canChangeColor ? 'cursor-pointer hover:scale-110 transition-transform' : ''
                     }`}
-                    title={isCurrentPlayer && canChangeColor ? 'Click to change color' : 'Your pin color'}
+                    title={isCurrentPlayer && canChangeColor ? 'Klicka för att byta färg' : 'Din färg'}
                   />
                   <span className="font-semibold text-gray-700">
                     {index + 1}.
@@ -79,7 +79,7 @@ export default function PlayerList({ players, currentPlayerId, gameStatus }: Pla
               {/* Color picker dropdown */}
               {isPickingColor && canChangeColor && (
                 <div className="mt-2 p-3 bg-white border-2 border-indigo-300 rounded-lg shadow-lg">
-                  <div className="text-sm font-semibold text-gray-700 mb-2">Choose your pin color:</div>
+                  <div className="text-sm font-semibold text-gray-700 mb-2">Välj din färg:</div>
                   <div className="flex flex-wrap gap-2">
                     {PLAYER_COLORS.map((color) => {
                       const isUsed = players.some(p => p.id !== player.id && p.color === color)
@@ -107,7 +107,7 @@ export default function PlayerList({ players, currentPlayerId, gameStatus }: Pla
                     onClick={() => setShowColorPicker(null)}
                     className="mt-3 text-xs text-gray-600 hover:text-gray-800 underline"
                   >
-                    Close
+                    Stäng
                   </button>
                 </div>
               )}
@@ -116,7 +116,7 @@ export default function PlayerList({ players, currentPlayerId, gameStatus }: Pla
         })}
         {players.length === 0 && (
           <p className="text-gray-500 text-sm text-center py-4">
-            No players yet
+            Inga spelare ännu
           </p>
         )}
       </div>

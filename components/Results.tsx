@@ -132,7 +132,7 @@ export default function Results({
               <Popup>
                 <strong>{event.title}</strong>
                 <br />
-                Actual Location
+                Rätt plats
               </Popup>
             </Marker>
             {/* All guesses markers */}
@@ -148,7 +148,7 @@ export default function Results({
                   <Popup>
                     <strong>{getPlayerName(guess.player_id)}</strong>
                     <br />
-                    {guess.distance_km.toFixed(0)} km away
+                    {guess.distance_km.toFixed(0)} km ifrån
                   </Popup>
                 </Marker>
                 {/* Line from guess to actual location */}
@@ -167,7 +167,7 @@ export default function Results({
           </MapContainer>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500">Loading map...</p>
+            <p className="text-gray-500">Laddar karta...</p>
           </div>
         )}
       </div>
@@ -273,7 +273,7 @@ export default function Results({
 
           {sortedGuesses.length === 0 && players.length === 0 && (
             <p className="text-gray-500 text-center py-4">
-              No guesses submitted
+              Inga gissningar skickades
             </p>
           )}
         </div>

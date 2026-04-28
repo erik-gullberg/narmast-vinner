@@ -37,7 +37,7 @@ function Map({
       style={{ height: '100%', width: '100%' }}
       scrollWheelZoom={true}
       className="z-0"
-      placeholder={<div>Loading map...</div>}
+      placeholder={<div>Laddar karta...</div>}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -224,7 +224,7 @@ export default function MapComponent({
       <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col">
         <div className="relative flex-1" style={{ minHeight: '500px', height: '70vh' }}>
           <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500">Loading map...</p>
+            <p className="text-gray-500">Laddar karta...</p>
           </div>
         </div>
       </div>
