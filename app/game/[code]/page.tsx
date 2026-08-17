@@ -32,9 +32,22 @@ type Guess = Database['public']['Tables']['guesses']['Row']
 /** Matches game_is_stalled() in the database. */
 const STALL_MS = 90_000
 
-/** How long auto_advance games linger on each phase before moving on. */
+/**
+ * How long auto_advance games linger on each phase before moving on.
+ *
+ * AUTO_IMAGE_MS is measured from the moment the picture is actually visible,
+ * not from the start of the phase, so a slow image never eats the time the
+ * player was supposed to spend looking at it.
+ */
 const AUTO_IMAGE_MS = 6_000
 const AUTO_REVEAL_MS = 9_000
+
+/**
+ * Absolute ceiling on waiting for an image before advancing anyway. Only
+ * reached if the picture neither loads nor errors — a hung request rather than
+ * a failed one — which would otherwise strand the game forever.
+ */
+const MAX_IMAGE_WAIT_MS = 20_000
 
 export default function GamePage() {
   const params = useParams()
@@ -52,6 +65,8 @@ export default function GamePage() {
   const [hostStalled, setHostStalled] = useState(false)
   /** Seconds until auto_advance moves the game on, or null when inactive. */
   const [autoIn, setAutoIn] = useState<number | null>(null)
+  /** When the current event's picture actually appeared on screen. */
+  const [imageReadyAt, setImageReadyAt] = useState<number | null>(null)
 
   // The realtime channel is subscribed once per game id. Its callbacks would
   // otherwise close over a stale `game` and keep reading round 1 forever, so
@@ -270,13 +285,33 @@ export default function GamePage() {
     }
 
     const isImage = game.phase === 'showing_image'
-    const deadline = new Date(game.phase_started_at).getTime() + (isImage ? AUTO_IMAGE_MS : AUTO_REVEAL_MS)
+    const phaseStart = new Date(game.phase_started_at).getTime()
     const gameId = game.id
+
+    // The reveal can start counting immediately. The image phase cannot: it
+    // waits for the picture to be on screen, then gives the player the full
+    // viewing time from that point. MAX_IMAGE_WAIT_MS stops a hung request
+    // from stranding the game.
+    let deadline: number
+    let waitingForImage = false
+    if (isImage) {
+      if (imageReadyAt !== null) {
+        deadline = imageReadyAt + AUTO_IMAGE_MS
+      } else {
+        deadline = phaseStart + MAX_IMAGE_WAIT_MS
+        waitingForImage = true
+      }
+    } else {
+      deadline = phaseStart + AUTO_REVEAL_MS
+    }
+
     let fired = false
 
     const tick = async () => {
       const remaining = deadline - Date.now()
-      setAutoIn(Math.max(0, Math.ceil(remaining / 1000)))
+      // No countdown while the picture is still loading — showing one would be
+      // a promise we cannot keep.
+      setAutoIn(waitingForImage ? null : Math.max(0, Math.ceil(remaining / 1000)))
 
       if (remaining <= 0 && !fired) {
         fired = true
@@ -296,7 +331,17 @@ export default function GamePage() {
     tick()
     const timer = setInterval(tick, 250)
     return () => clearInterval(timer)
-  }, [autoAdvanceActive, game?.id, game?.phase, game?.phase_started_at, playerId])
+  }, [autoAdvanceActive, game?.id, game?.phase, game?.phase_started_at, playerId, imageReadyAt])
+
+  // Reset the image clock on every new event, so round N+1 cannot inherit
+  // round N's readiness and skip straight past the picture.
+  useEffect(() => {
+    setImageReadyAt(null)
+  }, [game?.current_event_id])
+
+  const handleImageReady = useCallback(() => {
+    setImageReadyAt((prev) => prev ?? Date.now())
+  }, [])
 
   // Detect an absent host so the game can still be advanced (§4.2).
   useEffect(() => {
@@ -448,7 +493,11 @@ export default function GamePage() {
                 <h2 className="text-gray-600 text-2xl font-bold mb-4 flex items-center justify-center gap-2">
                   <span>Runda {game.current_round}</span>
                 </h2>
-                <EventDisplay key={currentEvent.id} event={currentEvent} />
+                <EventDisplay
+                  key={currentEvent.id}
+                  event={currentEvent}
+                  onReady={handleImageReady}
+                />
               </div>
               <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status} />
             </>

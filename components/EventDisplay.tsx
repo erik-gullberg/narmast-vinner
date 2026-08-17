@@ -1,30 +1,60 @@
 'use client'
 
 import { Database } from '@/lib/database.types'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { optimizedImageUrl } from '@/lib/images'
 
 type Event = Database['public']['Tables']['events']['Row']
 
 interface EventDisplayProps {
   event: Event
+  /**
+   * Fired once per event as soon as the picture is actually on screen — or has
+   * definitively failed. The auto-advance countdown hangs off this, so that a
+   * slow image cannot eat the time the player was supposed to spend looking at
+   * it. Also fires on error, so a broken image cannot stall the game.
+   */
+  onReady?: () => void
 }
 
-export default function EventDisplay({ event }: EventDisplayProps) {
+export default function EventDisplay({ event, onReady }: EventDisplayProps) {
   const [isCover, setIsCover] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const imgRef = useRef<HTMLImageElement | null>(null)
 
+  // Prefer the lighter URL, but keep the original as a fallback so a failed
+  // rewrite degrades to the picture we know works rather than to nothing.
+  const [useOriginal, setUseOriginal] = useState(false)
+  const optimizedUrl = optimizedImageUrl(event.image_url)
+  const displayUrl = useOriginal ? event.image_url : optimizedUrl
+  const canFallBack = !useOriginal && optimizedUrl !== event.image_url
+
+  // Guards against reporting the same event twice (onLoad plus the cache check)
+  const reportedRef = useRef<string | null>(null)
+  const onReadyRef = useRef(onReady)
+  useEffect(() => {
+    onReadyRef.current = onReady
+  }, [onReady])
+
+  const markReady = useCallback(() => {
+    if (reportedRef.current === event.id) return
+    reportedRef.current = event.id
+    onReadyRef.current?.()
+  }, [event.id])
+
   // Reset state whenever the event changes (defensive, key prop in parent should handle this too)
   useEffect(() => {
     setIsLoading(true)
     setHasError(false)
+    setUseOriginal(false)
   }, [event.id])
 
   // If the browser already has the image cached, onLoad won't fire — check after mount
   useEffect(() => {
     if (imgRef.current?.complete) {
       setIsLoading(false)
+      markReady()
     }
   })
 
@@ -74,11 +104,22 @@ export default function EventDisplay({ event }: EventDisplayProps) {
         {!hasError && (
           <img
             ref={imgRef}
-            src={event.image_url}
+            key={displayUrl}
+            src={displayUrl}
             alt={event.title}
             className={`absolute inset-0 w-full h-full ${isCover ? 'object-cover' : 'object-contain'} transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-            onLoad={() => setIsLoading(false)}
-            onError={() => { setIsLoading(false); setHasError(true) }}
+            onLoad={() => { setIsLoading(false); markReady() }}
+            onError={() => {
+              if (canFallBack) {
+                // Rewritten URL failed — retry with the original before
+                // declaring the image broken.
+                setUseOriginal(true)
+                return
+              }
+              setIsLoading(false)
+              setHasError(true)
+              markReady()
+            }}
           />
         )}
       </div>

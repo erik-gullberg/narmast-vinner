@@ -399,7 +399,26 @@ förrän mitt i ett spel.
 
 ## 5. Prestanda
 
-### 5.1 Bilderna är det största problemet
+### 5.1 Bilderna är det största problemet — 🟡 DELVIS ÅTGÄRDAT
+
+**Åtgärdat:** `lib/images.ts` skriver om Wikimedia-URL:er till deras
+thumbnail-variant (1280 px). 83 av 102 bilder ligger på Wikimedia och 69 av dem
+pekade på originalfilen i full upplösning.
+
+Uppmätt på 12 verkliga originalbilder: **22,7 MB → 2,22 MB (90 % mindre)**.
+Värsta fallet, "Höga Kusten Bron", gick från **10,8 MB till 244 KB** — den tog
+tidigare ~22 sekunder på en 4G-telefon, alltså längre än en hel runda.
+
+Ren URL-transform: ingen bild-CDN, ingen tredjepartsoptimerare, ingen kvot.
+Faller tillbaka på originalbilden om den omskrivna URL:en inte laddar.
+
+**Kvarstår:** förladdning av nästa rundas bild. Det kräver att servern väljer
+nästa event i förväg (t.ex. en `next_event_id`-kolumn), eftersom `advance_round()`
+slumpar fram bilden först när rundan byter.
+
+---
+
+### 5.1b Ursprunglig analys
 
 `EventDisplay.tsx:75` använder en vanlig `<img>` med Wikipedias **originalbild**.
 Flera av dem är 3–8 MB. De laddas i samma ögonblick som rundan börjar, på mobil,
@@ -711,7 +730,8 @@ upplevelsen — särskilt inte med de överflödiga anropen i §5.4 kvar.
 - [x] **Solo-läge** (§6.1) ⭐ — ett klick från startsidan, inget lobby-steg
 - [x] Exponentiell poängkurva (§6.3) — 0-poängsgissningar: 35,0 % → 9,8 %
 - [x] Auto-advance (§6.4) — alltid på i solo, kryssruta för flerspelarläge
-- [ ] Bildoptimering + förladdning (§5.1) — största kvarvarande prestandaposten
+- [x] Bildoptimering (§5.1) — Wikimedia-thumbnails, 90 % mindre data
+- [ ] Förladdning av nästa rundas bild (§5.1) — kräver `next_event_id` i schemat
 - [ ] Delbart resultat i Wordle-stil (§6.1)
 
 ### Steg 4 — Gör det roligt inför premiären (2–3 helger)
