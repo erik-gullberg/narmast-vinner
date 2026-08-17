@@ -10,8 +10,12 @@ import {
 } from "react-leaflet";
 import { Database } from "@/lib/database.types";
 import L from "leaflet";
-import { createPlayerIcon, getColorStyle, getHexColor } from "@/lib/colors";
-import { supabase } from "@/lib/supabase";
+import {
+  createPlayerIcon,
+  fixLeafletDefaultIcon,
+  getColorStyle,
+  getHexColor,
+} from "@/lib/colors";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Guess = Database["public"]["Tables"]["guesses"]["Row"];
@@ -41,56 +45,21 @@ export default function Results({
   game,
 }: ResultsProps) {
   const [mounted, setMounted] = useState(false);
-  const [scoringDone, setScoringDone] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Fix for default marker icons in Leaflet
-    import("leaflet").then((L) => {
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl:
-          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-        iconUrl:
-          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-        shadowUrl:
-          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-      });
-    });
+    fixLeafletDefaultIcon();
     setMounted(true);
   }, []);
 
-  // Award points for closest_wins mode
-  useEffect(() => {
-    if (game.game_mode === 'closest_wins' && guesses.length > 0 && !scoringDone) {
-      const awardPointsToClosest = async () => {
-        // Find the closest guess
-        const sortedGuesses = [...guesses].sort((a, b) => a.distance_km - b.distance_km);
-        const closestGuess = sortedGuesses[0];
-
-        if (closestGuess) {
-          // Award 1 point to the closest player
-          const { data: player } = await supabase
-            .from('players')
-            .select('score')
-            .eq('id', closestGuess.player_id)
-            .single();
-
-          if (player) {
-            await supabase
-              .from('players')
-              .update({ score: player.score + 1 })
-              .eq('id', closestGuess.player_id);
-          }
-        }
-
-        setScoringDone(true);
-      };
-
-      awardPointsToClosest();
-    }
-  }, [game.game_mode, guesses, scoringDone]);
+  // Scoring deliberately lives nowhere in this component.
+  //
+  // It used to award points here, which meant it ran once per connected
+  // client: with five players the closest guesser received somewhere between
+  // +1 and +5 points depending on how the read-modify-write races resolved.
+  // close_round() now awards points exactly once, server-side, guarded by the
+  // round_results primary key. This component is a pure view.
 
   // Sort guesses by distance (closest first)
   const sortedGuesses = [...guesses].sort(

@@ -11,9 +11,13 @@ A Swedish multiplayer geography-guessing game (inspired by "På Spåret") where 
 
 **Core data flow:** All game state lives in Supabase. The `game/[code]/page.tsx` subscribes to three real-time Postgres change channels (`games`, `players`, `guesses`) and drives the entire UI reactively — no polling.
 
-**Game phases (in `games.phase`):** `waiting` → `showing_image` → `guessing` → (back to `showing_image` for next round)
+**Game phases (in `games.phase`):** `waiting` → `showing_image` → `guessing` → `revealing` → (back to `showing_image` for next round)
+
+The reveal is a real server-side phase, not client state. Every client shows `Results.tsx` because `games.phase = 'revealing'` arrived over realtime, so everyone reveals simultaneously.
 
 **Host identity:** The `host_id` in `games` is the player UUID also stored in `sessionStorage.playerId`. The host sees `GameControls.tsx`; everyone else does not. There is no auth — identity is purely `sessionStorage`-based.
+
+If the host goes silent for 90 seconds the game is considered *stalled* and any player may advance it (`game_is_stalled()` in SQL, `STALL_MS` in `page.tsx`). This exists because a host closing their tab used to strand the game in `playing` forever.
 
 ## Key Files
 
@@ -22,14 +26,50 @@ A Swedish multiplayer geography-guessing game (inspired by "På Spåret") where 
 | `lib/database.types.ts` | Single source of truth for all table types — use these for `type X = Database['public']['Tables']['x']['Row']` |
 | `lib/supabase.ts` | Singleton typed Supabase client (anon key, reads `NEXT_PUBLIC_*` env vars) |
 | `lib/utils.ts` | `calculateDistance` (Haversine) and `generateGameCode` (6-char alphanumeric) |
-| `lib/colors.ts` | Player color system — red is **reserved for the answer pin**; never assign red to players |
-| `lib/events.ts` | Fallback `sampleEvents` array; only inserted if the `events` table is empty at game start |
+| `lib/colors.ts` | Player color system — red is **reserved for the answer pin**; never assign red to players. Marker PNGs are self-hosted in `public/markers/` |
 | `supabase/schema.sql` | Full DB schema; incremental changes are in `supabase/migration_*.sql` files |
+| `supabase/migration_critical_fixes.sql` | The server-authoritative game logic. Read this before changing any game flow |
 
-## Scoring Logic (Split Across Two Components)
+## Game State Is Server-Authoritative
 
-- **`highscore` mode:** Points = `max(0, 1000 − distance_km)`. Awarded immediately in `MapComponent.tsx` on guess submit.
-- **`closest_wins` mode:** Only the closest guesser gets +1 point. Awarded in `Results.tsx` when the results view is shown. Do not move this logic — it runs once per round thanks to the `scoringDone` guard.
+**All game state transitions and all scoring live in Postgres**, as `SECURITY DEFINER`
+functions called via `supabase.rpc()`. Do not move any of it back into React.
+
+| RPC | Purpose |
+|---|---|
+| `start_game` | waiting → playing, picks first event |
+| `begin_guessing` | showing_image → guessing, stamps `phase_started_at` |
+| `submit_guess` | validates window/membership, computes distance, inserts guess |
+| `close_round` | **awards points exactly once**, guessing → revealing |
+| `advance_round` | picks next event, applies end conditions |
+| `end_game` | marks finished |
+| `set_player_color` | color change during lobby |
+
+Why it matters:
+
+- **Scoring runs exactly once per round.** `close_round` is guarded by the
+  `round_results (game_id, round)` primary key, so it is safe for every client to
+  call it concurrently. Scoring previously ran in `Results.tsx` on *every* client,
+  which awarded the `closest_wins` winner 1–N points at random.
+- **Distance is computed in Postgres** (`haversine_km`), never in the browser, so
+  it cannot be forged.
+- **The server owns the clock.** `submit_guess` and `close_round` both validate
+  against `phase_started_at`, so a wrong device clock cannot buy extra time. The
+  countdown in `page.tsx` is display only.
+- **`anon` has no direct write access** to `games`, `players`, `guesses` or
+  `events` (see `migration_critical_fixes_part_b.sql`). Only `INSERT` on
+  `games`/`players` remains, for create/join. If you add a write, add an RPC.
+
+RLS cannot express any of this on its own: there is no auth, so `auth.uid()` is
+always `NULL` and a policy can only be `true` or `false`.
+
+## Scoring Formulas
+
+- **`highscore`:** `max(0, round(1000 − distance_km))` per player, per round.
+- **`closest_wins`:** exactly +1 to the single closest guesser.
+
+Both are implemented in `close_round()`. `Results.tsx` recomputes the same numbers
+purely for display and must be kept in sync with the SQL.
 
 ## Leaflet / SSR Pattern
 
@@ -46,21 +86,32 @@ import('leaflet').then((L) => {
 
 ## Adding Events to the Database
 
-```bash
-npm run import-wiki   # interactive: prompts for Wikipedia URL, then saves to Supabase
-```
+> **There is currently no import tooling in the repo.** `AGENTS.md` used to
+> document `npm run import-wiki` / `scripts/import-wikipedia-event.ts`, but
+> neither exists — the script was removed and the npm script was never added.
+> It survives only on the local `do-not-push` branch, where it also contains a
+> hardcoded service-role key. See IMPROVEMENTS.md §7.1 before reinstating it,
+> and read the key from `process.env`.
 
-The script (`scripts/import-wikipedia-event.ts`) fetches title, description, image, and coordinates from the Wikipedia REST + MediaWiki APIs and inserts directly into the `events` table using the hardcoded service-role key.
+Events must be inserted with the **service-role key**; `anon` can no longer
+write to `events`.
 
-New event images must come from an allowed hostname. Add new domains to the `images.remotePatterns` array in `next.config.js`.
+Requirements for a new row:
+
+- `latitude` / `longitude` must be within valid ranges (enforced by CHECK constraints)
+- `image_url` must be reachable, or the nightly keepalive job will set `image_ok = false`
+  and `advance_round()` will stop picking it
+- the image host must be in `images.remotePatterns` in `next.config.js`
+
+`events.image_ok` is maintained by `.github/workflows/keepalive.yml`, which also
+keeps the Supabase project from being paused for inactivity.
 
 ## Developer Commands
 
 ```bash
 npm run dev        # start dev server
 npm run build      # production build
-npm run lint       # ESLint
-npm run import-wiki  # add a Wikipedia event to the database
+npm run lint       # ESLint (note: no eslint config exists yet — see IMPROVEMENTS.md §4.5)
 ```
 
 ## Environment Variables
@@ -70,7 +121,8 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-The import script has a hardcoded service-role key for direct DB writes. The app itself uses only the anon key.
+The app uses only the anon key. The keepalive workflow needs `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` as **GitHub repository secrets** — never commit them.
 
 ## Conventions
 
