@@ -5,40 +5,56 @@ produktionsdata från Supabase (518 spel, 923 spelare, 5 035 gissningar, 102 eve
 
 ---
 
-## Status
+## Status — efter Batch 1 och 2
 
-**Batch 1 (kritiska fixar) är klar, deployad och verifierad i produktion.**
+**Allt nedan är mergat till `main`, deployat och verifierat mot produktion.**
 
-| Del | Status |
-|---|---|
-| `migration_critical_fixes.sql` (Part A) | ✅ körd, verifierad mot produktion |
-| Ny frontend | ✅ deployad |
-| `migration_critical_fixes_part_b.sql` (Part B) | ✅ körd — anon-skrivningar ger nu 401 |
-| Rotera service-role-nyckeln (§3.1) | ⬜ kvarstår, men nyckeln blev **aldrig pushad** — se not |
+### Migrationer (alla körda)
 
-Åtgärdat: §2.1, §2.2, §2.3, §2.4, §2.5, §2.6, §2.7, §3.2, §4.2, §4.4, §4.6,
-§5.2, §5.3, §8.
+| Fil | Vad | Status |
+|---|---|---|
+| `migration_critical_fixes.sql` | RPC:er, `round_results`, constraints | ✅ körd |
+| `migration_critical_fixes_part_b.sql` | Återkallar anons skrivrättigheter | ✅ körd — anon-skrivningar ger 401 |
+| `migration_solo_and_scoring.sql` | `auto_advance`, exponentiell poäng | ✅ körd — verifierad: 1 000 km ⇒ 368 p |
 
-**Batch 2 (solo, tempo, poängkurva) är implementerad men inte deployad.**
+### Åtgärdat
 
-| Del | Status |
-|---|---|
-| `migration_solo_and_scoring.sql` | ⬜ **måste köras före deploy** |
-| Solo-läge (§6.1) | ✅ implementerat |
-| Auto-advance (§6.4) | ✅ implementerat |
-| Exponentiell poängkurva (§6.3) | ✅ implementerat |
+§2.1 · §2.2 · §2.3 · §2.4 · §2.5 · §2.6 · §2.7 · §3.2 · §4.2 · §4.4 · §4.6 ·
+§5.1 (delvis) · §5.2 · §5.3 · §6.1 (delvis) · §6.3 · §6.4 · §8 (kod klar)
 
-Migrationen är additiv och har ingen brytande del — men den måste köras **före**
-frontend-deployen, eftersom klienten läser `games.auto_advance`.
+### Kvarstår för dig — inte kod
+
+| # | Vad | Varför |
+|---|---|---|
+| 1 | **Sätt GitHub-secrets** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | Keepalive-jobbet ligger på `main` och är schemalagt, men misslyckas utan dem. Det var hela ursprungsproblemet — annars pausas Supabase. |
+| 2 | **Rensa testspel** | `DELETE FROM games WHERE code IN ('ZZPOSTB','ZZCURVE');` — anon har inte längre DELETE, så det måste ske i SQL-editorn. |
+| 3 | Rotera service-role-nyckeln (§3.1) | Valfritt, se not nedan. |
 
 > **Not om §3.1:** commit `8e85e58` med service-role-nyckeln finns bara på den
-> lokala grenen `do-not-push`. Den är inte ancestor till någon remote-ref och
-> grenen finns inte på GitHub. Exponeringen är alltså **enbart lokal disk**.
-> Rotation är hygien, inte akut — och rotationen slår ut anon-nyckeln också,
-> som är inbakad i bundlen vid build-tid (kräver redeploy).
+> lokala grenen `do-not-push`. Den är **inte** ancestor till någon remote-ref och
+> grenen finns inte på GitHub — kontrollerat. Exponeringen är alltså **enbart
+> lokal disk**. Rotation är hygien, inte akut, och den slår ut anon-nyckeln
+> också (samma JWT-secret) — den är inbakad i bundlen vid build-tid och kräver
+> därför redeploy. Grenen innehåller dessutom den enda kopian av
+> Wikipedia-importskriptet; rädda det innan grenen raderas (§7.1).
 
-Kvarstår som viktigast: §6.1 solo-läge, §6.2 avslöjandet, §6.3 poängkurvan,
-§5.1 bildoptimering, §7 innehåll.
+### ⚠️ Om siffrorna i det här dokumentet
+
+All produktionsdata nedan (65 % solospel, 42 % avhopp inom 2 rundor, 35 %
+nollpoängsgissningar) är mätt **före** dessa ändringar. Den beskriver problemen
+som motiverade arbetet — inte resultatet av det.
+
+**Mät om efter ~1 vecka i drift** för att se om solo-läget och tempoändringarna
+faktiskt flyttade något. Frågorna i §1 och §7.3 går att köra rakt av.
+
+### Nästa steg, i prioritetsordning
+
+1. **Innehåll (§7)** — 102 events, 54 % i Europa, varje event redan visat ~5
+   gånger. Tunnaste resursen, och den enda som inte går att fixa på en kväll.
+2. **Animerat avslöjande (§6.2)** — mest dramatik per rad kod, och nu värt det
+   eftersom fler faktiskt når runda 5.
+3. **Delbart resultat (§6.1)** — billigaste tillväxtmekanismen, rätt tajmat
+   inför premiären.
 
 ---
 
@@ -117,16 +133,18 @@ när de tröttnar, utan segerskärm, utan slutpoäng, utan anledning att spela i
 ### 1.4 Svårighetsgrad
 
 ```
-Median-avstånd:   315 km
-Medel-avstånd:  1 814 km
-Gissningar > 1000 km (= 0 poäng i highscore):  32 %
-Gissningar < 100 km:                            32 %
+Median-avstånd:   426 km
+Medel-avstånd:  1 993 km
+Gissningar > 1000 km (= 0 poäng med gamla formeln):  35,0 %
+Gissningar < 100 km:                                 24,6 %
 ```
 
-**Nästan en tredjedel av alla gissningar ger noll poäng.** Den linjära formeln
-`max(0, 1000 - km)` skapar en hård klippkant: 999 km ger 1 poäng, 1001 km ger 0.
-Spelaren får ingen som helst återkoppling på om hen var 1 100 km eller 11 000 km
-fel. Det känns som att misslyckas, inte som att vara nära.
+**En tredjedel av alla gissningar gav noll poäng.** Den linjära formeln
+`max(0, 1000 - km)` skapade en hård klippkant: 999 km gav 1 poäng, 1001 km gav 0.
+Spelaren fick ingen som helst återkoppling på om hen var 1 100 km eller 11 000 km
+fel. Det kändes som att misslyckas, inte som att vara nära.
+
+✅ Åtgärdat i §6.3 — 0-poängsgissningar är nu 9,8 % istället för 35,0 %.
 
 ### 1.5 Innehållet
 
@@ -158,7 +176,11 @@ Två problem:
 
 ## 2. Kritiska buggar
 
-### 2.1 `closest_wins` delar ut för många poäng — `components/Results.tsx:65-93`
+### 2.1 `closest_wins` delar ut för många poäng ✅ ÅTGÄRDAT
+
+> Löst av `close_round()`, skyddad av primärnyckeln i `round_results`.
+> Verifierat: 5 samtidiga anrop ger exakt 1 poäng.
+> Ursprunglig analys (`components/Results.tsx:65-93`):
 
 `Results` renderas på **varje spelares enhet**. Varje instans kör
 `awardPointsToClosest()`, som gör en läs-modifiera-skriv:
@@ -180,7 +202,10 @@ använder läget är antagligen delvis en konsekvens av det.
 **Fix:** Flytta all poängsättning till en Postgres-funktion som körs en gång
 per runda (se §4.1).
 
-### 2.2 Det går inte att svara klart — `components/MapComponent.tsx:135-139`
+### 2.2 Det går inte att svara klart ✅ ÅTGÄRDAT
+
+> "Klar!"-knapp tillagd; rundan stängs så fort alla lämnat in.
+> Ursprunglig analys (`components/MapComponent.tsx:135-139`):
 
 ```ts
 useEffect(() => {
@@ -204,7 +229,10 @@ i gränssnittet. Konsekvenser:
 **Fix:** Lägg till en tydlig "Klar!"-knapp. Avsluta rundan direkt när alla
 lämnat in. Ta bort 5-sekundersbufferten när servern styr rundavslut.
 
-### 2.3 Klockskev ger orättvis speltid — `app/game/[code]/page.tsx:213-216`
+### 2.3 Klockskev ger orättvis speltid ✅ ÅTGÄRDAT
+
+> Servern äger deadlinen (`submit_guess` + `close_round`). Nedräkningen i
+> klienten är numera enbart visuell. Ursprunglig analys:
 
 ```ts
 const startTime = new Date(game.phase_started_at!).getTime()
@@ -218,7 +246,7 @@ mot servertid sker.
 **Fix:** Mät offset en gång vid anslutning (`select now()` mot Supabase, jämför
 med lokal tid) och kompensera. Alternativt låt servern stänga rundan.
 
-### 2.4 Ingen unik constraint på gissningar
+### 2.4 Ingen unik constraint på gissningar ✅ ÅTGÄRDAT
 
 `guesses` saknar `UNIQUE (game_id, player_id, round)`. Vid dubbelinlämning
 (reconnect, remount, snabb dubbelklick) kan samma spelare få poäng två gånger i
@@ -229,7 +257,11 @@ CREATE UNIQUE INDEX guesses_one_per_round
   ON guesses (game_id, player_id, round);
 ```
 
-### 2.5 Realtidskanalen rivs och byggs om vid varje uppdatering — `page.tsx:141`
+### 2.5 Realtidskanalen rivs och byggs om vid varje uppdatering ✅ ÅTGÄRDAT
+
+> Nyckeln är nu `game?.id`. Obs: enbart den ändringen hade infört en värre bugg
+> — `loadGuesses` fångade `current_round` i en closure. Löst med en `gameRef`.
+> Ursprunglig analys (`page.tsx:141`):
 
 ```ts
 }, [game])   // ◄── hela game-objektet
@@ -244,7 +276,10 @@ Samma problem på rad 199 (`loadPlayers` vid varje `game`-ändring) och rad 259.
 
 **Fix:** `}, [game?.id])`.
 
-### 2.6 Tom `used_event_ids` ger ogiltig SQL — `components/GameControls.tsx:142-145`
+### 2.6 Tom `used_event_ids` ger ogiltig SQL ✅ ÅTGÄRDAT
+
+> Ersatt av `NOT (id = ANY(...))` i `advance_round()`, som är tom-array-säkert.
+> Ursprunglig analys:
 
 ```ts
 .not('id', 'in', `(${usedEventIds.join(',')})`)
@@ -255,7 +290,10 @@ alltid initierar arrayen, men det är skört. Dessutom växer query-strängen me
 UUID per runda; ett maratonspel på 100 rundor skickar 3 600 tecken UUID i
 URL:en och riskerar att slå i URL-längdsgränsen.
 
-### 2.7 Spelare som lämnar blockerar rundan — `page.tsx:253`
+### 2.7 Spelare som lämnar blockerar rundan ✅ ÅTGÄRDAT
+
+> `close_round()` stänger på timeout även om någon aldrig gissar.
+> Ursprunglig analys (`page.tsx:253`):
 
 ```ts
 if (roundGuesses.length === players.length && players.length > 0)
@@ -287,7 +325,12 @@ läcker nyckeln permanent.
 3. Lägg till `.env*` i `.gitignore` (redan gjort) och aktivera GitHub
    secret scanning + push protection på repot.
 
-### 3.2 RLS är avstängd i praktiken — `supabase/schema.sql:68-112`
+### 3.2 RLS är avstängd i praktiken ✅ ÅTGÄRDAT
+
+> **Lösningen blev inte RLS-policyer.** Utan auth är `auth.uid()` alltid `NULL`,
+> så en policy kan bara bli `true` eller `false`. Istället återkallades anons
+> skrivrättigheter helt och all skrivning går genom `SECURITY DEFINER`-funktioner.
+> Ursprunglig analys (`supabase/schema.sql:68-112`):
 
 Samtliga policies är `USING (true)` utan `WITH CHECK`. Med enbart den publika
 anon-nyckeln kan vem som helst:
@@ -321,7 +364,9 @@ som liknar en tävling eller topplista.
 
 ## 4. Robusthet & arkitektur
 
-### 4.1 Flytta speltillståndet till servern (den stora)
+### 4.1 Flytta speltillståndet till servern ✅ ÅTGÄRDAT
+
+> Sju RPC:er, se `AGENTS.md`. Ursprunglig plan:
 
 Idag ligger *all* spellogik i webbläsaren: fasbyten, val av event, poängsättning,
 rundavslut. Det ger fyra separata problem som alla har samma lösning.
@@ -344,7 +389,10 @@ Det löser i ett svep: §2.1 (dubbla poäng), §2.2 (tempo), §2.4 (dubbletter),
 
 Behåll klienten som ren vy. Det är också en förutsättning för allt i §6.
 
-### 4.2 Värd-migrering — orsaken till de 181 döda spelen
+### 4.2 Värd-migrering — orsaken till de 181 döda spelen ✅ ÅTGÄRDAT
+
+> 90-sekundersregeln (`game_is_stalled()`) implementerad: vem som helst får
+> föra spelet vidare när värden tystnat. Ursprunglig analys:
 
 `host_id` finns bara i värdens `sessionStorage`/`localStorage`. Om värden stänger
 webbläsaren kan **ingen** föra spelet vidare. Spelet fastnar i `playing` för alltid.
@@ -371,7 +419,7 @@ delete from games where created_at < now() - interval '30 days';
 
 Överväg att först aggregera till en statistik-tabell (§7.3) innan raderingen.
 
-### 4.4 `revealing`-fasen finns men används aldrig
+### 4.4 `revealing`-fasen finns men används aldrig ✅ ÅTGÄRDAT
 
 Schemat har `phase = 'revealing'` men inget sätter den. Resultatvisningen är helt
 klientlokal (`showResults` i React-state), vilket gör att olika spelare kan se
@@ -384,7 +432,7 @@ alla, vilket är en förutsättning för animationen i §6.2.
 gör alltså ingenting användbart. Lägg till `eslint-config-next` och kör den i
 CI — det hade fångat flera av useEffect-buggarna ovan.
 
-### 4.6 Saknade databasconstraints
+### 4.6 Saknade databasconstraints ✅ ÅTGÄRDAT
 
 ```sql
 alter table events add constraint events_lat_valid check (latitude between -90 and 90);
@@ -438,7 +486,10 @@ i projektet.
 3. **Förladda nästa runda:** hämta nästa events bild i bakgrunden under
    resultatvisningen. Rundstarten blir då momentan.
 
-### 5.2 `pickReachableEvent` är långsam och skalar dåligt — `GameControls.tsx:31-54`
+### 5.2 `pickReachableEvent` är långsam och skalar dåligt ✅ ÅTGÄRDAT
+
+> Ersatt av en indexerad query i `advance_round()`; bildhälsa spåras i
+> `events.image_ok` via keepalive-jobbet. Ursprunglig analys:
 
 Vid varje rundstart, från värdens webbläsare:
 
@@ -456,7 +507,9 @@ att tro att spelet hängt sig.
 cron-jobb), spara resultatet i en `image_ok boolean`-kolumn. Låt sedan
 `advance_round()` välja med `order by random() limit 1 where image_ok`.
 
-### 5.3 Leaflet-ikoner hämtas från raw.githubusercontent.com — `lib/colors.ts:57`
+### 5.3 Leaflet-ikoner hämtas från raw.githubusercontent.com ✅ ÅTGÄRDAT
+
+> Ikonerna ligger nu i `public/markers/`. Ursprunglig analys (`lib/colors.ts:57`):
 
 ```ts
 iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`
@@ -535,16 +588,16 @@ Konkret: en gissning 1 200 km fel gick från 0 till 301 poäng. 3 000 km fel gic
 från 0 till 50. Nära gissningar är i princip oförändrade (50 km: 950 → 951), så
 rangordningen är densamma — det är bara bottenplattan som försvunnit.
 
-### 6.4 Tempo
+### 6.4 Tempo 🟡 DELVIS KLAR
 
-- **"Klar!"-knapp** (§2.2) — låt folk lämna in tidigt.
-- **Avsluta rundan när alla lämnat in.** Med i snitt 1,8 spelare kan en runda gå
-  på 6 sekunder istället för 20.
-- **Auto-advance** efter resultatvisningen med en 8-sekunders nedräkning, som
-  värden kan hoppa över. Tar bort två klick per runda och räddar de 181 spel som
-  fastnar när värden tappar intresset.
-- **"Alla har svarat"-indikator** under gissningsfasen — visa prickar som tänds
-  när varje spelare lämnat in. Skapar press, precis som i studion.
+- ✅ **"Klar!"-knapp** (§2.2) — låt folk lämna in tidigt.
+- ✅ **Avsluta rundan när alla lämnat in.** Med i snitt 1,8 spelare går en runda
+  nu på några sekunder istället för alltid 20.
+- ✅ **Auto-advance** med nedräkning som går att hoppa över. Alltid på i solo,
+  kryssruta i `/create` för flerspelarläge.
+- ✅ **Räknare** under gissningsfasen: "N av M har gissat".
+- ⬜ **Prickar per spelare** istället för bara en siffra — visar *vem* som är
+  klar. Skapar mer press, precis som i studion.
 
 ### 6.5 Tidsbonus (valfritt läge, inte som standard)
 
@@ -732,14 +785,15 @@ upplevelsen — särskilt inte med de överflödiga anropen i §5.4 kvar.
 - [x] Auto-advance (§6.4) — alltid på i solo, kryssruta för flerspelarläge
 - [x] Bildoptimering (§5.1) — Wikimedia-thumbnails, 90 % mindre data
 - [ ] Förladdning av nästa rundas bild (§5.1) — kräver `next_event_id` i schemat
-- [ ] Delbart resultat i Wordle-stil (§6.1)
 
 ### Steg 4 — Gör det roligt inför premiären (2–3 helger)
 
-- [ ] Animerat avslöjande (§6.2) ⭐
-- [ ] Ljud (§6.9)
+- [ ] Animerat avslöjande (§6.2) ⭐ — högst kvarvarande effekt per rad kod
 - [ ] Delbart resultat i Wordle-stil (§6.1)
+- [ ] Ljud (§6.9)
 - [ ] QR-kod i lobbyn (§6.9)
+- [ ] Otvetydigt spelkodsalfabet — ta bort 0/O och 1/I (§6.9)
+- [ ] Låt folk gå med i pågående spel (§6.9)
 - [ ] Kategorier och teman (§6.6)
 
 ### Steg 5 — Innehåll (löpande, starta nu)
@@ -751,20 +805,71 @@ upplevelsen — särskilt inte med de överflödiga anropen i §5.4 kvar.
 
 ---
 
+## 9b. Vad som faktiskt byggdes
+
+Fem commits på `main`. Nyttigt att läsa innan man rör spelflödet igen.
+
+| Commit | Vad |
+|---|---|
+| `8e18b8e` | Serverauktoritativt speltillstånd: 7 RPC:er, `round_results`, anons skrivrättigheter återkallade |
+| `c3b3464` | `close_round` anropades aldrig — `supabase.rpc()` är en lat `PromiseLike` |
+| `1739a79` | Solo-läge, auto-advance, exponentiell poängkurva |
+| `c1966f8` | Bilden garanteras synas; Wikimedia-thumbnails; keepalive-buggen |
+| `1c51831` | Bilden hoppades över vid rundbyte (effekt-ordning); `lib/autoAdvance.ts` + tester |
+
+### Tre fällor värda att komma ihåg
+
+**1. `supabase.rpc()` skickar ingen HTTP-request förrän den `await`:as.**
+Den returnerar en lat `PromiseLike`, inte en `Promise`. Ett anrop utan `await`
+gör absolut ingenting — tyst, utan fel. Det gjorde att rundor aldrig stängdes
+medan `submit_guess` (som var `await`:ad) fungerade perfekt.
+
+**2. Effekter körs i deklarationsordning.**
+`imageReadyAt` nollställdes i en effekt som låg *efter* auto-advance-effekten,
+så vid rundbyte såg auto-advance förra rundans värde och hoppade över bilden.
+Lösningen blev att tagga värdet med sitt `eventId` istället för att förlita sig
+på ordningen. Ren logik som denna hör hemma i `lib/` som en testbar funktion —
+det är därför `lib/autoAdvance.ts` finns.
+
+**3. Wikimedia svarar 429 utan beskrivande User-Agent.**
+Första versionen av keepalive-skriptet hade satt `image_ok = false` på fullt
+fungerande bilder och långsamt tömt eventpoolen. Skriptet behandlar nu 429, 5xx
+och timeout som *ovisst* och lämnar `image_ok` orört.
+
+### Verifieringsmetod
+
+Det som gick att verifiera på riktigt verifierades:
+
+- SQL kördes mot Postgres i Docker (~20 funktionella tester) innan den kördes
+  skarpt — inklusive samtidiga `close_round`-anrop.
+- Poängkurvan spelades upp mot **alla 5 045 verkliga gissningar**, inte bara
+  räknades ut i huvudet.
+- Bild-transformen mättes mot verkliga URL:er (22,7 MB → 2,22 MB).
+- Regressionstestet i `lib/autoAdvance.test.ts` validerades genom att
+  återinföra buggen och se testet falla.
+
+---
+
 ## 10. Sammanfattning
 
 Koden är i grunden välstrukturerad — realtidsflödet är rent, typerna kommer från
 ett ställe, och SSR-hanteringen av Leaflet är korrekt gjord. Problemen ligger
 någon annanstans:
 
-1. **Spelet är byggt för fel spelare.** Två tredjedelar spelar ensamma i ett
-   värd-styrt partyspel. Ett solo-läge är den enskilt största förbättringen.
-2. **Tempot är trasigt.** Att inte kunna svara klart gör varje runda lika lång
-   oavsett vad som händer, och tar bort all spänning.
-3. **Logiken ligger i webbläsaren.** Det ger poängbuggar, fastnade spel,
-   fuskmöjligheter och onödig last. En handfull Postgres-funktioner löser allt
-   på en gång.
-4. **Innehållet är för tunt och för europeiskt.** 102 events med 54 % Europa
-   räcker inte för en publik som återkommer.
+1. ✅ **Spelet var byggt för fel spelare.** Två tredjedelar spelade ensamma i ett
+   värd-styrt partyspel. Solo-läge finns nu — ett klick från startsidan.
+2. ✅ **Tempot var trasigt.** Utan submit-knapp tog varje runda lika lång tid
+   oavsett vad som hände. "Klar!" + tidig rundstängning är på plats.
+3. ✅ **Logiken låg i webbläsaren.** Poängbuggar, fastnade spel, fuskmöjligheter
+   och onödig last. Nu sju Postgres-funktioner med anons skrivrättigheter borta.
+4. ⬜ **Innehållet är för tunt och för europeiskt.** 102 events med 54 % Europa
+   räcker inte för en publik som återkommer. **Detta är nu den största
+   kvarvarande posten** — och den enda som tar veckor snarare än en kväll.
 
-Fixa 1 och 2 före premiären och du kommer märka skillnaden i statistiken direkt.
+Punkt 1–3 är gjorda. Punkt 4 är kvar, och den är den som avgör om folk spelar
+mer än en gång när programmet är tillbaka.
+
+En sak att vara ärlig om: alla siffror ovan är uppmätta **före** ändringarna. Om
+solo-läget och tempot faktiskt flyttade tratten vet vi först när det gått en
+vecka i drift — kör om frågorna i §1 då innan nästa runda antaganden byggs på
+gammal data.
