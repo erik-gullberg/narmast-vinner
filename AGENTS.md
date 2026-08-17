@@ -65,11 +65,31 @@ always `NULL` and a policy can only be `true` or `false`.
 
 ## Scoring Formulas
 
-- **`highscore`:** `max(0, round(1000 − distance_km))` per player, per round.
+- **`highscore`:** `round(1000 * exp(−distance_km / 1000))` per player, per round.
 - **`closest_wins`:** exactly +1 to the single closest guesser.
 
-Both are implemented in `close_round()`. `Results.tsx` recomputes the same numbers
-purely for display and must be kept in sync with the SQL.
+Both are implemented in `close_round()`. `lib/scoring.ts` mirrors them for display
+only — **if you change one, change the other.** The database is authoritative.
+
+The old linear `max(0, 1000 − km)` was replaced because, replayed over 5045 real
+guesses, it scored 35% of them exactly zero: it had a hard cliff at 1000 km and
+gave identical feedback to a guess 1100 km out and one 11000 km out.
+
+## Solo Mode and Auto-Advance
+
+`games.auto_advance` makes the **host's client** drive phase transitions on a
+timer rather than by button press (`AUTO_IMAGE_MS` / `AUTO_REVEAL_MS` in
+`page.tsx`). Only the host drives, so N players do not all fire the same
+transition; if the host leaves, the 90s stall rescue takes over.
+
+Solo games are ordinary games with one player, `auto_advance = true`, and
+`startImmediately` in `lib/createGame.ts` — which calls `start_game` during
+creation so the player never sees a lobby telling them to invite friends. There
+is no separate solo code path, and `/create` and the solo button share
+`createGame()` so they cannot drift.
+
+The reveal countdown is server-synced: `close_round()` stamps `phase_started_at`
+when it sets `phase = 'revealing'`.
 
 ## Leaflet / SSR Pattern
 

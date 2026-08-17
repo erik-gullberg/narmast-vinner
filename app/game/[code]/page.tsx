@@ -32,6 +32,10 @@ type Guess = Database['public']['Tables']['guesses']['Row']
 /** Matches game_is_stalled() in the database. */
 const STALL_MS = 90_000
 
+/** How long auto_advance games linger on each phase before moving on. */
+const AUTO_IMAGE_MS = 6_000
+const AUTO_REVEAL_MS = 9_000
+
 export default function GamePage() {
   const params = useParams()
   const router = useRouter()
@@ -46,6 +50,8 @@ export default function GamePage() {
   const [guesses, setGuesses] = useState<Guess[]>([])
   const [loading, setLoading] = useState(true)
   const [hostStalled, setHostStalled] = useState(false)
+  /** Seconds until auto_advance moves the game on, or null when inactive. */
+  const [autoIn, setAutoIn] = useState<number | null>(null)
 
   // The realtime channel is subscribed once per game id. Its callbacks would
   // otherwise close over a stale `game` and keep reading round 1 forever, so
@@ -243,6 +249,55 @@ export default function GamePage() {
     }
   }, [isGuessing, game?.id, everyoneGuessed, timeLeft === 0])
 
+  // Auto-advance (§6.4).
+  //
+  // Always on for solo games, opt-in for multiplayer. Only the host's client
+  // drives it so N players do not all fire the same transition; if the host
+  // leaves, the 90s stall rescue below takes over.
+  //
+  // The deadline is derived from phase_started_at, which the server stamps on
+  // every transition including the reveal, so all clients count down together.
+  const autoAdvanceActive =
+    !!game?.auto_advance &&
+    isHost &&
+    game?.status === 'playing' &&
+    (game.phase === 'showing_image' || game.phase === 'revealing')
+
+  useEffect(() => {
+    if (!autoAdvanceActive || !game?.id || !playerId || !game.phase_started_at) {
+      setAutoIn(null)
+      return
+    }
+
+    const isImage = game.phase === 'showing_image'
+    const deadline = new Date(game.phase_started_at).getTime() + (isImage ? AUTO_IMAGE_MS : AUTO_REVEAL_MS)
+    const gameId = game.id
+    let fired = false
+
+    const tick = async () => {
+      const remaining = deadline - Date.now()
+      setAutoIn(Math.max(0, Math.ceil(remaining / 1000)))
+
+      if (remaining <= 0 && !fired) {
+        fired = true
+        const { error: rpcError } = await supabase.rpc(
+          isImage ? 'begin_guessing' : 'advance_round',
+          { p_game_id: gameId, p_player_id: playerId }
+        )
+        if (rpcError) {
+          console.error('auto-advance failed:', rpcError)
+          // Back off before retrying; the tick runs every 250ms and we do not
+          // want to hammer the API if this fails persistently.
+          setTimeout(() => { fired = false }, 2000)
+        }
+      }
+    }
+
+    tick()
+    const timer = setInterval(tick, 250)
+    return () => clearInterval(timer)
+  }, [autoAdvanceActive, game?.id, game?.phase, game?.phase_started_at, playerId])
+
   // Detect an absent host so the game can still be advanced (§4.2).
   useEffect(() => {
     if (!game || game.status === 'finished' || isHost) {
@@ -341,6 +396,7 @@ export default function GamePage() {
               playerId={playerId}
               playersCount={players.length}
               canRescue={!isHost && hostStalled}
+              autoIn={autoIn}
             />
             {isGuessing && timerPanel}
           </div>
@@ -372,7 +428,7 @@ export default function GamePage() {
                   <ul className="text-center space-y-2">
                     <li className={"text-gray-600"}>• Spelare får se en bild av en händelse eller plats</li>
                     <li className={"text-gray-600"}>• Alla får {game.guess_time_seconds || 15} sekunder på sig att placera ut händelsen på en världskarta</li>
-                    <li className={"text-gray-600"}>• 1000 poäng för fullträff, minus 1 poäng per kilometer ifrån målet</li>
+                    <li className={"text-gray-600"}>• 1000 poäng för fullträff — ju närmare du gissar, desto mer poäng</li>
                   </ul>
                 ) : (
                   <ul className="text-center space-y-2">
