@@ -1,14 +1,13 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/lib/database.types'
 import EventDisplay from '@/components/EventDisplay'
 import PlayerList from '@/components/PlayerList'
 import GameControls from '@/components/GameControls'
-
 
 const Results = dynamic(() => import('@/components/Results'), { ssr: false })
 
@@ -30,6 +29,9 @@ type Player = Database['public']['Tables']['players']['Row']
 type Event = Database['public']['Tables']['events']['Row']
 type Guess = Database['public']['Tables']['guesses']['Row']
 
+/** Matches game_is_stalled() in the database. */
+const STALL_MS = 90_000
+
 export default function GamePage() {
   const params = useParams()
   const router = useRouter()
@@ -41,11 +43,17 @@ export default function GamePage() {
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [hasGuessed, setHasGuessed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(15)
-  const [showResults, setShowResults] = useState(false)
   const [guesses, setGuesses] = useState<Guess[]>([])
   const [loading, setLoading] = useState(true)
-  const [waitingForResults, setWaitingForResults] = useState(false)
-  const resultsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [hostStalled, setHostStalled] = useState(false)
+
+  // The realtime channel is subscribed once per game id. Its callbacks would
+  // otherwise close over a stale `game` and keep reading round 1 forever, so
+  // they read through this ref instead.
+  const gameRef = useRef<Game | null>(null)
+  useEffect(() => {
+    gameRef.current = game
+  }, [game])
 
   // Get player ID from session or localStorage (rejoin after refresh/tab close)
   useEffect(() => {
@@ -66,6 +74,26 @@ export default function GamePage() {
     }
     setPlayerId(id)
   }, [router, gameCode])
+
+  const loadPlayers = useCallback(async (gameId: string) => {
+    const { data, error } = await supabase
+      .from('players')
+      .select('*')
+      .eq('game_id', gameId)
+      .order('score', { ascending: false })
+
+    if (data && !error) setPlayers(data)
+  }, [])
+
+  const loadGuesses = useCallback(async (gameId: string, round: number) => {
+    const { data, error } = await supabase
+      .from('guesses')
+      .select('*')
+      .eq('game_id', gameId)
+      .eq('round', round)
+
+    if (data && !error) setGuesses(data)
+  }, [])
 
   // Load game data
   useEffect(() => {
@@ -91,185 +119,130 @@ export default function GamePage() {
     loadGame()
   }, [gameCode, router])
 
-  // Subscribe to game updates
+  // Subscribe to game updates.
+  //
+  // Keyed on game.id, not on the whole game object. Keying on `game` tore the
+  // channel down and rebuilt it on every single state change, which meant
+  // messages could be dropped during the resubscribe window.
   useEffect(() => {
-    if (!game) return
+    const gameId = game?.id
+    if (!gameId) return
 
     const channel = supabase
-      .channel(`game:${game.id}`)
+      .channel(`game:${gameId}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'games',
-          filter: `id=eq.${game.id}`,
-        },
-        (payload) => {
-          setGame(payload.new as Game)
-        }
+        { event: '*', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
+        (payload) => setGame(payload.new as Game)
       )
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'players',
-          filter: `game_id=eq.${game.id}`,
-        },
-        () => {
-          loadPlayers()
-        }
+        { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${gameId}` },
+        () => loadPlayers(gameId)
       )
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'guesses',
-          filter: `game_id=eq.${game.id}`,
-        },
-        () => {
-          loadGuesses()
-        }
+        { event: '*', schema: 'public', table: 'guesses', filter: `game_id=eq.${gameId}` },
+        () => loadGuesses(gameId, gameRef.current?.current_round ?? 1)
       )
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [game])
+  }, [game?.id, loadPlayers, loadGuesses])
 
-  // Load players
-  const loadPlayers = async () => {
-    if (!game) return
-
-    const { data, error } = await supabase
-      .from('players')
-      .select('*')
-      .eq('game_id', game.id)
-      .order('score', { ascending: false })
-
-    if (data && !error) {
-      setPlayers(data)
-    }
-  }
+  // Load players once the game is known
+  useEffect(() => {
+    if (game?.id) loadPlayers(game.id)
+  }, [game?.id, loadPlayers])
 
   // Load current event
-  const loadCurrentEvent = async () => {
-    if (!game || !game.current_event_id) return
+  useEffect(() => {
+    const eventId = game?.current_event_id
+    if (!eventId) return
 
-    const { data, error } = await supabase
+    supabase
       .from('events')
       .select('*')
-      .eq('id', game.current_event_id)
+      .eq('id', eventId)
       .single()
-
-    if (data && !error) {
-      setCurrentEvent(data)
-    }
-  }
-
-  // Load guesses for current round
-  const loadGuesses = async () => {
-    if (!game) return
-
-    const { data, error } = await supabase
-      .from('guesses')
-      .select('*')
-      .eq('game_id', game.id)
-      .eq('round', game.current_round)
-
-    if (data && !error) {
-      setGuesses(data)
-    }
-  }
-
-  const getMedal = (placement: number) => {
-    switch (placement) {
-      case 0: return '🥇'
-      case 1: return '🥈'
-      case 2: return '🥉'
-      default: return ''
-    }
-  }
-
-  useEffect(() => {
-    loadPlayers()
-  }, [game])
-
-  useEffect(() => {
-    loadCurrentEvent()
+      .then(({ data, error }) => {
+        if (data && !error) setCurrentEvent(data)
+      })
   }, [game?.current_event_id])
 
-  // Timer logic - calculate based on server timestamp
+  // Load guesses whenever the round or phase changes
   useEffect(() => {
-    if (game?.status !== 'playing' || game?.phase !== 'guessing' || !game.phase_started_at) return
+    if (game?.id && game.current_round > 0) {
+      loadGuesses(game.id, game.current_round)
+    }
+  }, [game?.id, game?.current_round, game?.phase, loadGuesses])
 
-    const guessTimeLimit = game.guess_time_seconds || 15
-    let bufferTriggered = false
+  const isHost = playerId === game?.host_id
+  const isGuessing = game?.status === 'playing' && game?.phase === 'guessing'
+  const isRevealing = game?.status === 'playing' && game?.phase === 'revealing'
 
-    const updateTimer = () => {
-      const startTime = new Date(game.phase_started_at!).getTime()
-      const now = Date.now()
-      const elapsed = Math.floor((now - startTime) / 1000)
-      const remaining = Math.max(0, guessTimeLimit - elapsed)
-      setTimeLeft(remaining)
+  // Countdown. Display only — the server owns the real deadline, so a wrong
+  // device clock can no longer buy a player extra time.
+  useEffect(() => {
+    if (!isGuessing || !game?.phase_started_at) return
 
-      // Auto-show results when timer expires (only trigger once)
-      if (remaining === 0 && !bufferTriggered && !showResults && !waitingForResults) {
-        bufferTriggered = true
-        setWaitingForResults(true)
-        // 5 second buffer to ensure all auto-submissions sync across clients
-        resultsTimerRef.current = setTimeout(() => {
-          setShowResults(true)
-          setWaitingForResults(false)
-        }, 5000)
-      }
+    const limit = game.guess_time_seconds || 15
+    const startTime = new Date(game.phase_started_at).getTime()
+
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000)
+      setTimeLeft(Math.max(0, limit - elapsed))
     }
 
-    // Update immediately
-    updateTimer()
-
-    // Update every 100ms for smooth countdown
-    const timer = setInterval(updateTimer, 100)
-
+    tick()
+    const timer = setInterval(tick, 250)
     return () => clearInterval(timer)
-  }, [game?.status, game?.phase, game?.current_round, game?.phase_started_at, game?.guess_time_seconds, showResults, waitingForResults])
+  }, [isGuessing, game?.phase_started_at, game?.guess_time_seconds, game?.current_round])
 
-  // Check if all players have guessed (show results early if everyone is done)
+  // Close the round when it is genuinely over.
+  //
+  // Every client may call this; close_round() is idempotent and refuses to
+  // close early unless everyone has actually answered, so the fastest clock in
+  // the room cannot cut the round short for the others.
+  const everyoneGuessed = players.length > 0 && guesses.length >= players.length
+
   useEffect(() => {
-    if (!game || game.status !== 'playing' || game.phase !== 'guessing') return
+    if (!isGuessing || !game?.id) return
+    if (!everyoneGuessed && timeLeft > 0) return
 
-    loadGuesses()
+    // Small delay on the timeout path lets in-flight submissions land first.
+    const delay = everyoneGuessed ? 0 : 2000
+    const t = setTimeout(() => {
+      supabase.rpc('close_round', { p_game_id: game.id })
+    }, delay)
 
-    const checkAllGuessed = async () => {
-      const { data: roundGuesses } = await supabase
-        .from('guesses')
-        .select('player_id')
-        .eq('game_id', game.id)
-        .eq('round', game.current_round)
+    return () => clearTimeout(t)
+  }, [isGuessing, game?.id, everyoneGuessed, timeLeft === 0])
 
-      if (roundGuesses && roundGuesses.length === players.length && players.length > 0) {
-        setShowResults(true)
-      }
+  // Detect an absent host so the game can still be advanced (§4.2).
+  useEffect(() => {
+    if (!game || game.status === 'finished' || isHost) {
+      setHostStalled(false)
+      return
     }
 
-    checkAllGuessed()
-  }, [guesses.length, players.length, game])
+    const check = () => {
+      const last = new Date(game.phase_started_at ?? game.created_at).getTime()
+      setHostStalled(Date.now() - last > STALL_MS)
+    }
 
-  // Reset view when round changes & check if player already guessed this round
+    check()
+    const timer = setInterval(check, 5000)
+    return () => clearInterval(timer)
+  }, [game, isHost])
+
+  // Reset per-round view state, and re-detect an existing guess after a refresh
   useEffect(() => {
     if (!game) return
-    if (resultsTimerRef.current) {
-      clearTimeout(resultsTimerRef.current)
-      resultsTimerRef.current = null
-    }
-    setShowResults(false)
     setHasGuessed(false)
-    setWaitingForResults(false)
 
-    // Check if player already submitted a guess for this round (e.g. after refresh)
     if (playerId && game.id && game.current_round > 0) {
       supabase
         .from('guesses')
@@ -282,9 +255,20 @@ export default function GamePage() {
           if (data) setHasGuessed(true)
         })
     }
-  }, [game?.current_round])
+  }, [game?.current_round, game?.id, playerId])
 
-  const isHost = playerId === game?.host_id
+  const getMedal = (placement: number) => {
+    switch (placement) {
+      case 0: return '🥇'
+      case 1: return '🥈'
+      case 2: return '🥉'
+      default: return ''
+    }
+  }
+
+  const myColor = players.find((p) => p.id === playerId)?.color || 'blue'
+  const showControls = (isHost || hostStalled) && game?.status !== 'finished'
+  const guessedCount = guesses.length
 
   if (loading) {
     return (
@@ -294,12 +278,31 @@ export default function GamePage() {
     )
   }
 
+  const timerPanel = (
+    <div className="bg-white rounded-lg shadow p-4">
+      <div className="text-center">
+        <div className="text-sm text-gray-600 mb-1">Tid</div>
+        <div
+          className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}
+          aria-live="polite"
+        >
+          {timeLeft}s
+        </div>
+        {players.length > 1 && (
+          <div className="text-sm text-gray-600 mt-2">
+            {guessedCount} av {players.length} har gissat
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {game?.status !== 'playing' && (
         <header className="bg-white shadow-sm p-4">
           <div className="gap-4 mx-auto flex items-center">
-                        <img src="/logo.png" alt="Närmast Vinner logotyp - geografispel" width={40} height={40} />
+            <img src="/logo.png" alt="Närmast Vinner logotyp - geografispel" width={40} height={40} />
             <div>
               <h1 className="text-2xl font-bold text-gray-800">Närmast Vinner</h1>
               <p className="text-sm text-gray-600">Spelkod: <span className="font-mono font-bold">{gameCode}</span></p>
@@ -309,54 +312,38 @@ export default function GamePage() {
       )}
 
       <div className="flex-1 flex flex-col lg:flex-row max-w-[1920px] mx-auto w-full p-4 gap-4">
-        {isHost && game?.status !== 'finished' && (
+        {showControls && (
           <div className="lg:self-start space-y-4">
             <GameControls
-                game={game}
-                playersCount={players.length}
-                onShowResults={() => setShowResults(true)}
+              game={game}
+              playerId={playerId}
+              playersCount={players.length}
+              canRescue={!isHost && hostStalled}
             />
-            {game?.status === 'playing' && game?.phase === 'guessing' && !showResults && !waitingForResults && (
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-center">
-                  <div className="text-sm text-gray-600 mb-1">Tid</div>
-                  <div className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}>
-                    {timeLeft}s
-                  </div>
-                </div>
-              </div>
-            )}
+            {isGuessing && timerPanel}
           </div>
         )}
+
         {/* Sidebar - only rendered when it has content */}
-        {((game?.status === 'playing' && !isHost && game?.phase === 'guessing' && !showResults && !waitingForResults) || game?.status === 'waiting') && (
-        <aside className="lg:w-80 space-y-4">
-          {game?.status === 'playing' && !isHost && game?.phase === 'guessing' && !showResults && !waitingForResults && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-center">
-                <div className="text-sm text-gray-600 mb-1">Tid</div>
-                <div className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}>
-                  {timeLeft}s
-                </div>
-              </div>
-            </div>
-          )}
-          {game?.status === 'waiting' && (
-            <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status} />
-          )}
-        </aside>
+        {((isGuessing && !showControls) || game?.status === 'waiting') && (
+          <aside className="lg:w-80 space-y-4">
+            {isGuessing && !showControls && timerPanel}
+            {game?.status === 'waiting' && (
+              <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status} />
+            )}
+          </aside>
         )}
 
         {/* Main content */}
         <main className="flex-1 flex flex-col gap-4">
           {game?.status === 'waiting' && (
             <>
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <h2 className="text-gray-600 text-2xl font-bold mb-4">Väntar på att starta...</h2>
-              <p className="text-gray-600 mb-4">
-                Dela spelkoden <span className="font-mono font-bold text-xl">{gameCode}</span> med dina vänner för att spela tillsammans!
-              </p>
-            </div>
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <h2 className="text-gray-600 text-2xl font-bold mb-4">Väntar på att starta...</h2>
+                <p className="text-gray-600 mb-4">
+                  Dela spelkoden <span className="font-mono font-bold text-xl">{gameCode}</span> med dina vänner för att spela tillsammans!
+                </p>
+              </div>
               <div className="bg-white rounded-lg shadow p-8 text-center">
                 <h2 className="text-gray-600 text-xl font-bold mb-4">Regler</h2>
                 {game.game_mode === 'highscore' ? (
@@ -374,58 +361,41 @@ export default function GamePage() {
                   </ul>
                 )}
               </div>
-              </>
-          )}
-
-          {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
-            <div key={`event-display-${currentEvent.id}`} className="bg-white rounded-lg shadow pt-8 pb-8 pl-2 pr-2 text-center">
-              <h2 className="text-gray-600 text-2xl font-bold mb-4 flex items-center justify-center gap-2">
-                <span>Runda {game.current_round}</span>
-              </h2>
-              <EventDisplay key={currentEvent.id} event={currentEvent} />
-            </div>
-          )}
-
-          {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
-              <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status}/>
-          )}
-
-          {game?.status === 'playing' && currentEvent && game.phase === 'guessing' && !showResults && (
-            <>
-              {waitingForResults && (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-2">Samlar in alla svar...</h3>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className={waitingForResults ? 'hidden' : ''}>
-                <MapComponent
-                  gameId={game.id}
-                  playerId={playerId!}
-                  eventId={currentEvent.id}
-                  round={game.current_round}
-                  onGuess={() => setHasGuessed(true)}
-                  disabled={hasGuessed || timeLeft === 0}
-                />
-              </div>
             </>
           )}
 
-          {showResults && currentEvent && game && game.status !== 'finished' && (
+          {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
+            <>
+              <div key={`event-display-${currentEvent.id}`} className="bg-white rounded-lg shadow pt-8 pb-8 pl-2 pr-2 text-center">
+                <h2 className="text-gray-600 text-2xl font-bold mb-4 flex items-center justify-center gap-2">
+                  <span>Runda {game.current_round}</span>
+                </h2>
+                <EventDisplay key={currentEvent.id} event={currentEvent} />
+              </div>
+              <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status} />
+            </>
+          )}
+
+          {isGuessing && currentEvent && playerId && (
+            <MapComponent
+              gameId={game!.id}
+              playerId={playerId}
+              round={game!.current_round}
+              playerColor={myColor}
+              onGuess={() => setHasGuessed(true)}
+              disabled={hasGuessed}
+              timeUp={timeLeft === 0}
+            />
+          )}
+
+          {isRevealing && currentEvent && game && (
             <Results
               event={currentEvent}
               guesses={guesses}
               players={players}
               game={game}
               isHost={isHost}
-              onNextRound={() => {
-                setShowResults(false)
-                setHasGuessed(false)
-              }}
+              onNextRound={() => setHasGuessed(false)}
             />
           )}
 
@@ -461,4 +431,3 @@ export default function GamePage() {
     </div>
   )
 }
-

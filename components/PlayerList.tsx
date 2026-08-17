@@ -16,11 +16,13 @@ interface PlayerListProps {
 export default function PlayerList({ players, currentPlayerId, gameStatus }: PlayerListProps) {
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null)
 
+  // Goes through set_player_color() because direct UPDATE on players is
+  // revoked — that was how anyone could set their own score to 999999.
   const handleColorChange = async (playerId: string, newColor: string) => {
-    const { error } = await supabase
-      .from('players')
-      .update({ color: newColor })
-      .eq('id', playerId)
+    const { error } = await supabase.rpc('set_player_color', {
+      p_player_id: playerId,
+      p_color: newColor,
+    })
 
     if (error) {
       console.error('Error updating color:', error)

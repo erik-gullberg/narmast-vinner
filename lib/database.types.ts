@@ -106,6 +106,7 @@ export type Database = {
           longitude: number
           year: number
           is_ai_generated: boolean | null
+          image_ok: boolean
         }
         Insert: {
           id?: string
@@ -117,6 +118,7 @@ export type Database = {
           longitude: number
           year: number
           is_ai_generated?: boolean | null
+          image_ok?: boolean
         }
         Update: {
           id?: string
@@ -128,8 +130,35 @@ export type Database = {
           longitude?: number
           year?: number
           is_ai_generated?: boolean | null
+          image_ok?: boolean
         }
         Relationships: []
+      }
+      round_results: {
+        Row: {
+          game_id: string
+          round: number
+          scored_at: string
+        }
+        Insert: {
+          game_id: string
+          round: number
+          scored_at?: string
+        }
+        Update: {
+          game_id?: string
+          round?: number
+          scored_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "round_results_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       guesses: {
         Row: {
@@ -194,7 +223,42 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      // All game-state mutations go through these SECURITY DEFINER functions.
+      // See supabase/migration_critical_fixes.sql
+      start_game: {
+        Args: { p_game_id: string; p_player_id: string }
+        Returns: undefined
+      }
+      begin_guessing: {
+        Args: { p_game_id: string; p_player_id: string }
+        Returns: undefined
+      }
+      submit_guess: {
+        Args: {
+          p_game_id: string
+          p_player_id: string
+          p_lat: number
+          p_lon: number
+        }
+        // distance in km, computed server-side
+        Returns: number
+      }
+      close_round: {
+        Args: { p_game_id: string }
+        Returns: undefined
+      }
+      advance_round: {
+        Args: { p_game_id: string; p_player_id: string }
+        Returns: undefined
+      }
+      end_game: {
+        Args: { p_game_id: string; p_player_id: string }
+        Returns: undefined
+      }
+      set_player_color: {
+        Args: { p_player_id: string; p_color: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

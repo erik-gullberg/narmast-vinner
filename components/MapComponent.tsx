@@ -1,19 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import { MapClickHandler } from './MapClickHandler'
 import { supabase } from '@/lib/supabase'
-import { calculateDistance } from '@/lib/utils'
-import { createPlayerIcon } from '@/lib/colors'
+import { createPlayerIcon, fixLeafletDefaultIcon } from '@/lib/colors'
 
 interface MapComponentProps {
   gameId: string
   playerId: string
-  eventId: string
   round: number
+  playerColor: string
   onGuess: () => void
+  /** True once this player's guess is in, or the round is over. */
   disabled: boolean
+  /** True when the local countdown has hit zero. */
+  timeUp: boolean
 }
 
 // Separate inner component that will be completely remounted
@@ -22,7 +24,7 @@ function Map({
   disabled,
   guessLat,
   guessLon,
-  playerIcon
+  playerIcon,
 }: {
   onLocationClick: (lat: number, lng: number) => void
   disabled: boolean
@@ -44,179 +46,101 @@ function Map({
         url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
       />
       <MapClickHandler onLocationClick={onLocationClick} disabled={disabled} />
-      {guessLat && guessLon && playerIcon && (
+      {guessLat !== null && guessLon !== null && playerIcon && (
         <Marker position={[guessLat, guessLon]} icon={playerIcon} />
       )}
     </MapContainer>
   )
 }
 
+/**
+ * The guessing map.
+ *
+ * This component no longer knows the answer and no longer awards points. It
+ * used to fetch the event's coordinates, compute the distance in the browser
+ * and write the player's own score — all of which were trivially forgeable.
+ * submit_guess() now does the distance calculation server-side.
+ */
 export default function MapComponent({
   gameId,
   playerId,
-  eventId,
   round,
+  playerColor,
   onGuess,
   disabled,
+  timeUp,
 }: MapComponentProps) {
   const [guessLat, setGuessLat] = useState<number | null>(null)
   const [guessLon, setGuessLon] = useState<number | null>(null)
-  const [hasPlacedPin, setHasPlacedPin] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [playerColor, setPlayerColor] = useState<string>('blue')
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [playerIcon, setPlayerIcon] = useState<any>(null)
 
-  // Fetch player color and subscribe to changes
-  useEffect(() => {
-    const fetchPlayerColor = async () => {
-      const { data } = await supabase
-        .from('players')
-        .select('color')
-        .eq('id', playerId)
-        .single()
-
-      if (data?.color) {
-        setPlayerColor(data.color)
-        const icon = createPlayerIcon(data.color)
-        setPlayerIcon(icon)
-      }
-    }
-
-    fetchPlayerColor()
-
-    // Subscribe to real-time color changes
-    const channel = supabase
-      .channel(`player-color:${playerId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'players',
-          filter: `id=eq.${playerId}`,
-        },
-        (payload: any) => {
-          if (payload.new?.color) {
-            setPlayerColor(payload.new.color)
-            const icon = createPlayerIcon(payload.new.color)
-            setPlayerIcon(icon)
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [playerId])
+  const hasPlacedPin = guessLat !== null && guessLon !== null
 
   useEffect(() => {
-    // Fix for default marker icons in Leaflet
-    import('leaflet').then((L) => {
-      delete (L.Icon.Default.prototype as any)._getIconUrl
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      })
-    })
+    fixLeafletDefaultIcon()
     setMounted(true)
   }, [])
 
   useEffect(() => {
+    setPlayerIcon(createPlayerIcon(playerColor))
+  }, [playerColor])
+
+  // Reset for each new round
+  useEffect(() => {
     setGuessLat(null)
     setGuessLon(null)
-    setHasPlacedPin(false)
     setSubmitting(false)
+    setSubmitted(false)
+    setError(null)
   }, [round])
 
-  // Auto-submit guess when time runs out
-  useEffect(() => {
-    if (disabled && hasPlacedPin && !submitting && guessLat && guessLon) {
-      submitGuess()
-    }
-  }, [disabled, hasPlacedPin, guessLat, guessLon, submitting])
+  const submitGuess = useCallback(async () => {
+    if (guessLat === null || guessLon === null) return
+    if (submitting || submitted) return
 
-  const handleMapClick = (lat: number, lng: number) => {
-    if (!disabled) {
-      setGuessLat(lat)
-      setGuessLon(lng)
-      setHasPlacedPin(true)
-    }
-  }
+    setSubmitting(true)
+    setError(null)
 
-  const submitGuess = async () => {
-    if (!guessLat || !guessLon || submitting) {
+    const { error: rpcError } = await supabase.rpc('submit_guess', {
+      p_game_id: gameId,
+      p_player_id: playerId,
+      p_lat: guessLat,
+      p_lon: guessLon,
+    })
+
+    setSubmitting(false)
+
+    if (rpcError) {
+      console.error('Error submitting guess:', rpcError)
+      // The round closing underneath us is expected, not worth alarming about.
+      setError(
+        rpcError.message?.includes('Tiden är ute')
+          ? 'Tiden är ute!'
+          : 'Det gick inte att skicka gissningen. Försök igen.'
+      )
       return
     }
 
-    setSubmitting(true)
+    setSubmitted(true)
+    onGuess()
+  }, [gameId, playerId, guessLat, guessLon, submitting, submitted, onGuess])
 
-    try {
-      const { data: event } = await supabase
-        .from('events')
-        .select('latitude, longitude')
-        .eq('id', eventId)
-        .single()
-
-      if (!event) {
-        console.error('Event not found')
-        return
-      }
-
-      const distance = calculateDistance(
-        guessLat,
-        guessLon,
-        event.latitude,
-        event.longitude
-      )
-
-      const { error: insertError } = await supabase.from('guesses').insert({
-        game_id: gameId,
-        player_id: playerId,
-        event_id: eventId,
-        latitude: guessLat,
-        longitude: guessLon,
-        distance_km: distance,
-        round,
-      })
-
-      if (insertError) {
-        console.error('Error inserting guess:', insertError)
-        return
-      }
-
-      // Get game mode to determine scoring behavior
-      const { data: game } = await supabase
-        .from('games')
-        .select('game_mode')
-        .eq('id', gameId)
-        .single()
-
-      // Only award points immediately for highscore mode
-      // For closest_wins mode, scoring happens after all guesses are in
-      if (game?.game_mode === 'highscore') {
-        const points = Math.max(0, Math.round(1000 - distance))
-
-        const { data: player } = await supabase
-          .from('players')
-          .select('score')
-          .eq('id', playerId)
-          .single()
-
-        if (player) {
-          await supabase
-            .from('players')
-            .update({ score: player.score + points })
-            .eq('id', playerId)
-        }
-      }
-
-      onGuess()
-    } catch (error) {
-      console.error('Error submitting guess:', error)
+  // Safety net: if the clock runs out while a pin is placed but not confirmed,
+  // send it anyway rather than scoring the player zero.
+  useEffect(() => {
+    if (timeUp && hasPlacedPin && !submitting && !submitted) {
+      submitGuess()
     }
+  }, [timeUp, hasPlacedPin, submitting, submitted, submitGuess])
+
+  const handleMapClick = (lat: number, lng: number) => {
+    if (disabled || submitted) return
+    setGuessLat(lat)
+    setGuessLon(lng)
   }
 
   if (!mounted) {
@@ -231,25 +155,32 @@ export default function MapComponent({
     )
   }
 
+  const locked = disabled || submitted
+
   return (
     <div className="bg-white rounded-xl shadow-xl overflow-hidden flex flex-col touch-manipulation h-[70vh] lg:h-[80vh] max-h-[900px]">
       <div key={round} className="relative flex-1 h-full">
         <Map
           onLocationClick={handleMapClick}
-          disabled={disabled}
+          disabled={locked}
           guessLat={guessLat}
           guessLon={guessLon}
           playerIcon={playerIcon}
         />
-        {disabled && (
+        {locked && (
           <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[1000] pointer-events-none">
             <div className="bg-white rounded-lg p-4 text-center shadow-lg">
               <p className="font-semibold text-gray-900">
-                {hasPlacedPin ? 'Gissning skickad!' : 'Tiden är ute!'}
+                {submitted ? 'Gissning skickad!' : 'Tiden är ute!'}
               </p>
-              {!hasPlacedPin && (
+              {!submitted && !hasPlacedPin && (
                 <p className="text-sm text-gray-600 mt-1">
                   Du fick inga poäng denna runda
+                </p>
+              )}
+              {submitted && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Väntar på de andra spelarna...
                 </p>
               )}
             </div>
@@ -258,22 +189,42 @@ export default function MapComponent({
       </div>
 
       <div className="p-4 bg-gray-50 border-t">
-        {hasPlacedPin && !disabled ? (
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <p className="text-sm text-gray-600">
-              Du gissar på: {guessLat?.toFixed(2)}, {guessLon?.toFixed(2)}
+        {error && (
+          <p className="text-sm text-red-600 text-center mb-2">{error}</p>
+        )}
+
+        {/* The submit button. Without it every round burned the full clock,
+            because guesses were only ever sent when the timer hit zero. */}
+        {!locked ? (
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-600 flex-1">
+              {hasPlacedPin ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  Du gissar på: {guessLat?.toFixed(2)}, {guessLon?.toFixed(2)}
+                </span>
+              ) : (
+                'Klicka på kartan för att placera din nål'
+              )}
             </p>
+            <button
+              onClick={submitGuess}
+              disabled={!hasPlacedPin || submitting}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation"
+            >
+              {submitting ? 'Skickar...' : 'Klar!'}
+            </button>
           </div>
         ) : (
           <p className="text-sm text-gray-600 text-center">
-            {disabled
-              ? (submitting ? 'Skickar gissning..' : hasPlacedPin ? 'Gissning skickad!' : 'Tiden är ute!')
-              : 'Klicka på kartan för att placera din nål'}
+            {submitting
+              ? 'Skickar gissning...'
+              : submitted
+              ? 'Gissning skickad!'
+              : 'Tiden är ute!'}
           </p>
         )}
       </div>
     </div>
   )
 }
-

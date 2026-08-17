@@ -3,224 +3,107 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/lib/database.types'
-import { sampleEvents } from '@/lib/events'
 
 type Game = Database['public']['Tables']['games']['Row']
 
 interface GameControlsProps {
   game: Game | null
+  playerId: string | null
   playersCount: number
-  onShowResults: () => void
-}
-
-/** Returns true if the image URL can actually be fetched (not broken/403/etc.) */
-async function imageIsReachable(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' })
-    return res.ok
-  } catch {
-    return false
-  }
+  /** True when the host has gone silent and anyone may advance the game. */
+  canRescue: boolean
 }
 
 /**
- * From a pool of candidate event IDs, fetch each event's image_url in order
- * and return the first event whose image responds with a 2xx.
- * Falls back to the first candidate if all checks fail (better than nothing).
+ * Host controls.
+ *
+ * All game state transitions are server-side RPCs (see
+ * supabase/migration_critical_fixes.sql). This component used to pick the next
+ * event itself by fetching every event id, shuffling in JS, and firing serial
+ * HEAD requests at the image URLs before each round could start. That is now a
+ * single indexed query inside advance_round().
  */
-async function pickReachableEvent(
-  candidates: { id: string }[]
-): Promise<{ id: string } | null> {
-  if (candidates.length === 0) return null
-
-  // Shuffle so repeated calls don't always try the same order
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-
-  for (const candidate of shuffled) {
-    const { data: event } = await supabase
-      .from('events')
-      .select('id, image_url')
-      .eq('id', candidate.id)
-      .single()
-
-    if (!event) continue
-
-    const ok = await imageIsReachable(event.image_url)
-    if (ok) return { id: event.id }
-  }
-
-  // All images failed — return a random candidate anyway so the game isn't stuck
-  return shuffled[0]
-}
-
 export default function GameControls({
   game,
+  playerId,
   playersCount,
-  onShowResults,
+  canRescue,
 }: GameControlsProps) {
-  const [starting, setStarting] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [showQuitConfirmation, setShowQuitConfirmation] = useState(false)
 
-  const startGame = async () => {
-    if (!game || playersCount === 0) return
+  if (!game || !playerId) return null
 
-    setStarting(true)
-
+  // Wraps every RPC so a failure surfaces in the UI instead of only in the
+  // console, and so double clicks cannot fire the same transition twice.
+  // Note: supabase.rpc() returns a thenable builder, not a real Promise.
+  const run = async (
+    fn: () => PromiseLike<{ error: { message: string } | null }>,
+    fallbackMessage: string
+  ) => {
+    if (busy) return
+    setBusy(true)
+    setError(null)
     try {
-      // Insert sample events into database (if not already there)
-      const { data: existingEvents } = await supabase
-        .from('events')
-        .select('id')
-        .limit(1)
-
-      if (!existingEvents || existingEvents.length === 0) {
-        await supabase.from('events').insert(sampleEvents)
+      const { error: rpcError } = await fn()
+      if (rpcError) {
+        console.error(fallbackMessage, rpcError)
+        setError(rpcError.message || fallbackMessage)
       }
-
-      // Get a random event
-      const { data: events } = await supabase
-        .from('events')
-        .select('id')
-
-      if (!events || events.length === 0) return
-
-      const chosenEvent = await pickReachableEvent(events)
-      if (!chosenEvent) return
-
-      // Update game status and initialize used_event_ids with the first event
-      await supabase
-        .from('games')
-        .update({
-          status: 'playing',
-          current_round: 1,
-          current_event_id: chosenEvent.id,
-          phase: 'showing_image',
-          used_event_ids: [chosenEvent.id],
-        })
-        .eq('id', game.id)
-    } catch (error) {
-      console.error('Error starting game:', error)
-      setStarting(false)
+    } catch (err) {
+      console.error(fallbackMessage, err)
+      setError(fallbackMessage)
+    } finally {
+      setBusy(false)
     }
   }
 
-  const nextRound = async () => {
-    if (!game) return
+  const startGame = () =>
+    run(
+      () => supabase.rpc('start_game', { p_game_id: game.id, p_player_id: playerId }),
+      'Det gick inte att starta spelet.'
+    )
 
-    try {
-      // Check if we've reached max_rounds (if set)
-      if (game.max_rounds !== null && game.current_round >= game.max_rounds) {
-        // Game is over, no more rounds
-        await supabase
-          .from('games')
-          .update({ status: 'finished' })
-          .eq('id', game.id)
-        return
-      }
+  const startGuessing = () =>
+    run(
+      () => supabase.rpc('begin_guessing', { p_game_id: game.id, p_player_id: playerId }),
+      'Det gick inte att starta gissningen.'
+    )
 
-      // Check if someone has reached target_score (for closest_wins mode)
-      if (game.game_mode === 'closest_wins' && game.target_score !== null) {
-        const { data: players } = await supabase
-          .from('players')
-          .select('score')
-          .eq('game_id', game.id)
-          .gte('score', game.target_score)
-          .limit(1)
-
-        if (players && players.length > 0) {
-          // Someone reached the target score, end game
-          await supabase
-            .from('games')
-            .update({ status: 'finished' })
-            .eq('id', game.id)
-          return
-        }
-      }
-
-      const usedEventIds = game.used_event_ids || []
-
-      const { data: events } = await supabase
-        .from('events')
-        .select('id')
-        .not('id', 'in', `(${usedEventIds.join(',')})`)
-
-      if (!events || events.length === 0) {
-        // No more unused events, end game
-        await supabase
-          .from('games')
-          .update({ status: 'finished' })
-          .eq('id', game.id)
-        return
-      }
-
-      const chosenEvent = await pickReachableEvent(events)
-      if (!chosenEvent) {
-        // No reachable events, end game
-        await supabase
-          .from('games')
-          .update({ status: 'finished' })
-          .eq('id', game.id)
-        return
-      }
-
-      // Update game with new round and add event to used list
-      await supabase
-        .from('games')
-        .update({
-          current_round: game.current_round + 1,
-          current_event_id: chosenEvent.id,
-          phase: 'showing_image',
-          used_event_ids: [...usedEventIds, chosenEvent.id],
-        })
-        .eq('id', game.id)
-    } catch (error) {
-      console.error('Error starting next round:', error)
-    }
-  }
-
-  const startGuessing = async () => {
-    if (!game) return
-
-    try {
-      await supabase
-        .from('games')
-        .update({
-          phase: 'guessing',
-          phase_started_at: new Date().toISOString()
-        })
-        .eq('id', game.id)
-    } catch (error) {
-      console.error('Error starting guessing phase:', error)
-    }
-  }
+  const nextRound = () =>
+    run(
+      () => supabase.rpc('advance_round', { p_game_id: game.id, p_player_id: playerId }),
+      'Det gick inte att starta nästa runda.'
+    )
 
   const endGame = async () => {
-    if (!game) return
-
-    try {
-      await supabase
-        .from('games')
-        .update({ status: 'finished' })
-        .eq('id', game.id)
-      setShowQuitConfirmation(false)
-    } catch (error) {
-      console.error('Error ending game:', error)
-    }
+    await run(
+      () => supabase.rpc('end_game', { p_game_id: game.id, p_player_id: playerId }),
+      'Det gick inte att avsluta spelet.'
+    )
+    setShowQuitConfirmation(false)
   }
 
-  if (!game) return null
+  const isPlaying = game.status === 'playing'
 
   return (
     <div className="bg-white rounded-lg shadow p-4 max-h-screen">
       <h3 className="font-bold text-lg mb-3 text-gray-800">Spelkontroller</h3>
 
+      {canRescue && (
+        <p className="mb-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          Värden verkar ha lämnat spelet. Du kan föra spelet vidare.
+        </p>
+      )}
+
       {game.status === 'waiting' && (
         <button
           onClick={startGame}
-          disabled={playersCount === 0 || starting}
+          disabled={playersCount === 0 || busy}
           className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation flex items-center justify-center gap-2"
         >
-          {starting ? (
+          {busy ? (
             <>
               <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -232,32 +115,49 @@ export default function GameControls({
         </button>
       )}
 
-      {game.status === 'playing' && (
+      {isPlaying && (
         <div className="space-y-4">
           {game.phase === 'showing_image' && (
             <button
               onClick={startGuessing}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+              disabled={busy}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
             >
               Börja gissa
             </button>
           )}
-          {game.phase === 'guessing' && (
-            <>
-              <button
-                onClick={() => setShowQuitConfirmation(true)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
-              >
-                Avsluta spel
-              </button>
-              <button
-                onClick={nextRound}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
-              >
-                Nästa runda
-              </button>
-            </>
+
+          {/* Advancing is only offered once the round is actually over, so the
+              host can no longer cut the guessing phase short by accident. */}
+          {game.phase === 'revealing' && (
+            <button
+              onClick={nextRound}
+              disabled={busy}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
+            >
+              Nästa runda
+            </button>
           )}
+
+          {game.phase === 'guessing' && (
+            <p className="text-sm text-gray-600 text-center">
+              Väntar på att alla ska gissa...
+            </p>
+          )}
+
+          <button
+            onClick={() => setShowQuitConfirmation(true)}
+            disabled={busy}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
+          >
+            Avsluta spel
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+          {error}
         </div>
       )}
 
@@ -280,7 +180,8 @@ export default function GameControls({
               </button>
               <button
                 onClick={endGame}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg touch-manipulation"
+                disabled={busy}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
               >
                 Avsluta
               </button>
@@ -291,4 +192,3 @@ export default function GameControls({
     </div>
   )
 }
-

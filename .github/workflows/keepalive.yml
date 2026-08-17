@@ -1,0 +1,36 @@
+name: Supabase keepalive + image check
+
+# Two jobs in one, deliberately:
+#
+#   1. Supabase free tier pauses a project after 7 days of inactivity. With
+#      player numbers declining that is a real risk, and a paused project on
+#      the day På Spåret returns would be bad timing.
+#
+#   2. Event images rot (Wikimedia reorganises files, hosts start 403ing).
+#      This used to be checked with serial HEAD requests from the host's
+#      browser at the start of every single round, which added latency to the
+#      game. Now it happens out of band and writes events.image_ok, which
+#      advance_round() filters on.
+#
+# Because this job writes to the database, it counts as genuine activity
+# rather than a read-only ping.
+
+on:
+  schedule:
+    # Every 3 days at 06:00 UTC. Well inside the 7 day pause window.
+    - cron: '0 6 */3 * *'
+  # GitHub disables scheduled workflows in repos with no activity for 60 days,
+  # so keep a manual trigger available as a backstop.
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ping database and refresh events.image_ok
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node .github/scripts/keepalive.mjs
