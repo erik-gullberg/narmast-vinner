@@ -212,13 +212,35 @@ export default function GamePage() {
     if (!isGuessing || !game?.id) return
     if (!everyoneGuessed && timeLeft > 0) return
 
-    // Small delay on the timeout path lets in-flight submissions land first.
-    const delay = everyoneGuessed ? 0 : 2000
-    const t = setTimeout(() => {
-      supabase.rpc('close_round', { p_game_id: game.id })
-    }, delay)
+    const gameId = game.id
+    let cancelled = false
 
-    return () => clearTimeout(t)
+    const attempt = async () => {
+      // Must be awaited. supabase.rpc() returns a lazy PromiseLike builder that
+      // only issues the HTTP request when it is thened — calling it without
+      // awaiting sends nothing at all and the round never closes.
+      const { error: rpcError } = await supabase.rpc('close_round', {
+        p_game_id: gameId,
+      })
+      if (rpcError && !cancelled) {
+        console.error('close_round failed:', rpcError)
+      }
+    }
+
+    // Small delay on the timeout path lets in-flight submissions land first.
+    const first = setTimeout(attempt, everyoneGuessed ? 0 : 2000)
+
+    // close_round can legitimately decline to close (for example the server
+    // clock says the window is not up yet). Nothing else would re-trigger this
+    // effect, so retry until it takes. It is idempotent, and this effect is
+    // torn down the moment the phase leaves `guessing`.
+    const retry = setInterval(attempt, 3000)
+
+    return () => {
+      cancelled = true
+      clearTimeout(first)
+      clearInterval(retry)
+    }
   }, [isGuessing, game?.id, everyoneGuessed, timeLeft === 0])
 
   // Detect an absent host so the game can still be advanced (§4.2).
