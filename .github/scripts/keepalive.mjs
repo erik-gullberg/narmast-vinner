@@ -22,22 +22,43 @@ const headers = {
   'Content-Type': 'application/json',
 }
 
-/** Some hosts reject HEAD but allow a ranged GET, so fall back before failing. */
+// Wikimedia requires a descriptive User-Agent and rate limits hard without one.
+// 83 of the events are hosted there, so this is not optional: measured, a naive
+// concurrent checker gets HTTP 429 on most requests, which would flip perfectly
+// good images to image_ok = false and silently drain the event pool.
+const USER_AGENT =
+  'NarmastVinner-keepalive/1.0 (+https://xn--nrmastvinner-bfb.se) github-actions'
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Returns true (reachable), false (definitively broken), or null (unknown —
+ * rate limited or timed out). null means "leave image_ok alone", so a flaky
+ * check can never remove a working image from rotation.
+ */
 async function imageIsReachable(url) {
   const attempt = async (init) => {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
+    const timeout = setTimeout(() => controller.abort(), 20000)
     try {
-      const res = await fetch(url, { ...init, signal: controller.signal })
+      const res = await fetch(url, {
+        ...init,
+        headers: { 'User-Agent': USER_AGENT, ...(init.headers || {}) },
+        signal: controller.signal,
+      })
+      if (res.status === 429 || res.status >= 500) return null // transient
       return res.ok
     } catch {
-      return false
+      return null // network error or timeout — do not condemn the image
     } finally {
       clearTimeout(timeout)
     }
   }
 
-  if (await attempt({ method: 'HEAD' })) return true
+  // Some hosts reject HEAD but allow a ranged GET, so fall back before failing.
+  const head = await attempt({ method: 'HEAD' })
+  if (head === true) return true
+  await sleep(250)
   return attempt({ method: 'GET', headers: { Range: 'bytes=0-1023' } })
 }
 
@@ -56,24 +77,18 @@ async function main() {
   console.log(`Checking ${events.length} events...`)
 
   const changed = []
+  let unknown = 0
 
-  // Small concurrency cap so we do not hammer Wikimedia and get rate limited,
-  // which is what caused the image loading problems in the first place.
-  const CONCURRENCY = 5
-  for (let i = 0; i < events.length; i += CONCURRENCY) {
-    const batch = events.slice(i, i + CONCURRENCY)
-    const results = await Promise.all(
-      batch.map(async (event) => ({
-        event,
-        ok: await imageIsReachable(event.image_url),
-      }))
-    )
-
-    for (const { event, ok } of results) {
-      if (ok !== event.image_ok) {
-        changed.push({ id: event.id, title: event.title, image_ok: ok })
-      }
+  // Sequential with a pause between requests. This job runs every three days
+  // and has no deadline, so there is no reason to risk rate limiting.
+  for (const event of events) {
+    const ok = await imageIsReachable(event.image_url)
+    if (ok === null) {
+      unknown++ // leave image_ok untouched
+    } else if (ok !== event.image_ok) {
+      changed.push({ id: event.id, title: event.title, image_ok: ok })
     }
+    await sleep(300)
   }
 
   const broken = changed.filter((c) => !c.image_ok)
@@ -107,10 +122,12 @@ async function main() {
     }
   }
 
-  const okCount = events.filter((e) => e.image_ok).length - broken.length + recovered.length
+  const okCount =
+    events.filter((e) => e.image_ok).length - broken.length + recovered.length
   console.log(
     `Done. ${okCount}/${events.length} events playable. ` +
-    `${broken.length} newly broken, ${recovered.length} recovered.`
+    `${broken.length} newly broken, ${recovered.length} recovered, ` +
+    `${unknown} inconclusive (left unchanged).`
   )
 
   if (okCount < 10) {

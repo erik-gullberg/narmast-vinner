@@ -69,9 +69,6 @@ export default function Home() {
               </>
             ) : 'Spela själv'}
           </button>
-          <p className="text-center text-xs text-gray-500 -mt-2">
-            5 rundor, igång direkt
-          </p>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
