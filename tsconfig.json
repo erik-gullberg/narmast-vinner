@@ -10,6 +10,9 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // Lets *.test.ts import './module.ts' with the extension, which is what
+    // node --experimental-strip-types requires to run the tests directly.
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

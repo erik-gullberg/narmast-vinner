@@ -13,8 +13,11 @@ interface EventDisplayProps {
    * definitively failed. The auto-advance countdown hangs off this, so that a
    * slow image cannot eat the time the player was supposed to spend looking at
    * it. Also fires on error, so a broken image cannot stall the game.
+   *
+   * Passes the event id so the caller can tell this round's readiness apart
+   * from the previous round's.
    */
-  onReady?: () => void
+  onReady?: (eventId: string) => void
 }
 
 export default function EventDisplay({ event, onReady }: EventDisplayProps) {
@@ -40,7 +43,7 @@ export default function EventDisplay({ event, onReady }: EventDisplayProps) {
   const markReady = useCallback(() => {
     if (reportedRef.current === event.id) return
     reportedRef.current = event.id
-    onReadyRef.current?.()
+    onReadyRef.current?.(event.id)
   }, [event.id])
 
   // Reset state whenever the event changes (defensive, key prop in parent should handle this too)
