@@ -131,8 +131,14 @@ keeps the Supabase project from being paused for inactivity.
 ```bash
 npm run dev        # start dev server
 npm run build      # production build
+npm test           # node --test over lib/**/*.test.ts
 npm run lint       # ESLint (note: no eslint config exists yet — see IMPROVEMENTS.md §4.5)
 ```
+
+Tests run on bare Node using `--experimental-strip-types`, so they import the
+real `.ts` modules with no build step. There is no React test harness — logic
+that needs testing should be pulled out of components into `lib/` as a pure
+function, which is exactly why `lib/autoAdvance.ts` exists.
 
 ## Environment Variables
 

@@ -8,6 +8,7 @@ import { Database } from '@/lib/database.types'
 import EventDisplay from '@/components/EventDisplay'
 import PlayerList from '@/components/PlayerList'
 import GameControls from '@/components/GameControls'
+import { planAutoAdvance } from '@/lib/autoAdvance'
 
 const Results = dynamic(() => import('@/components/Results'), { ssr: false })
 
@@ -32,22 +33,6 @@ type Guess = Database['public']['Tables']['guesses']['Row']
 /** Matches game_is_stalled() in the database. */
 const STALL_MS = 90_000
 
-/**
- * How long auto_advance games linger on each phase before moving on.
- *
- * AUTO_IMAGE_MS is measured from the moment the picture is actually visible,
- * not from the start of the phase, so a slow image never eats the time the
- * player was supposed to spend looking at it.
- */
-const AUTO_IMAGE_MS = 6_000
-const AUTO_REVEAL_MS = 9_000
-
-/**
- * Absolute ceiling on waiting for an image before advancing anyway. Only
- * reached if the picture neither loads nor errors — a hung request rather than
- * a failed one — which would otherwise strand the game forever.
- */
-const MAX_IMAGE_WAIT_MS = 20_000
 
 export default function GamePage() {
   const params = useParams()
@@ -65,8 +50,19 @@ export default function GamePage() {
   const [hostStalled, setHostStalled] = useState(false)
   /** Seconds until auto_advance moves the game on, or null when inactive. */
   const [autoIn, setAutoIn] = useState<number | null>(null)
-  /** When the current event's picture actually appeared on screen. */
-  const [imageReadyAt, setImageReadyAt] = useState<number | null>(null)
+  /**
+   * When a picture actually appeared on screen, tagged with the event it
+   * belongs to.
+   *
+   * The tag matters. This used to be a bare timestamp, which meant that on the
+   * render where the round advanced, the auto-advance effect below still saw
+   * the *previous* round's value — roughly 24 seconds old by then — computed a
+   * deadline already in the past, and skipped straight past the new picture.
+   * Resetting it in a separate effect did not help, because effects run in
+   * declaration order and auto-advance is declared first. Tagging the event id
+   * makes the check correct regardless of ordering.
+   */
+  const [imageReady, setImageReady] = useState<{ eventId: string; at: number } | null>(null)
 
   // The realtime channel is subscribed once per game id. Its callbacks would
   // otherwise close over a stale `game` and keep reading round 1 forever, so
@@ -285,25 +281,16 @@ export default function GamePage() {
     }
 
     const isImage = game.phase === 'showing_image'
-    const phaseStart = new Date(game.phase_started_at).getTime()
     const gameId = game.id
 
-    // The reveal can start counting immediately. The image phase cannot: it
-    // waits for the picture to be on screen, then gives the player the full
-    // viewing time from that point. MAX_IMAGE_WAIT_MS stops a hung request
-    // from stranding the game.
-    let deadline: number
-    let waitingForImage = false
-    if (isImage) {
-      if (imageReadyAt !== null) {
-        deadline = imageReadyAt + AUTO_IMAGE_MS
-      } else {
-        deadline = phaseStart + MAX_IMAGE_WAIT_MS
-        waitingForImage = true
-      }
-    } else {
-      deadline = phaseStart + AUTO_REVEAL_MS
-    }
+    // See lib/autoAdvance.ts. The reveal counts from the moment the server
+    // closed the round; the picture counts from when it is actually visible.
+    const { deadline, waitingForImage } = planAutoAdvance({
+      phase: isImage ? 'showing_image' : 'revealing',
+      phaseStartedAt: new Date(game.phase_started_at).getTime(),
+      currentEventId: game.current_event_id,
+      imageReady,
+    })
 
     let fired = false
 
@@ -331,16 +318,23 @@ export default function GamePage() {
     tick()
     const timer = setInterval(tick, 250)
     return () => clearInterval(timer)
-  }, [autoAdvanceActive, game?.id, game?.phase, game?.phase_started_at, playerId, imageReadyAt])
+  }, [
+    autoAdvanceActive,
+    game?.id,
+    game?.phase,
+    game?.phase_started_at,
+    game?.current_event_id,
+    playerId,
+    imageReady,
+  ])
 
-  // Reset the image clock on every new event, so round N+1 cannot inherit
-  // round N's readiness and skip straight past the picture.
-  useEffect(() => {
-    setImageReadyAt(null)
-  }, [game?.current_event_id])
-
-  const handleImageReady = useCallback(() => {
-    setImageReadyAt((prev) => prev ?? Date.now())
+  // Records which picture became visible and when. Tagged with the event id so
+  // a stale value from the previous round can never be mistaken for this one's;
+  // no separate reset effect is needed.
+  const handleImageReady = useCallback((eventId: string) => {
+    setImageReady((prev) =>
+      prev?.eventId === eventId ? prev : { eventId, at: Date.now() }
+    )
   }, [])
 
   // Detect an absent host so the game can still be advanced (§4.2).
