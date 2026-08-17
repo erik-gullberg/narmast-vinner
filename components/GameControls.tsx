@@ -12,6 +12,8 @@ interface GameControlsProps {
   playersCount: number
   /** True when the host has gone silent and anyone may advance the game. */
   canRescue: boolean
+  /** Seconds until auto_advance fires, or null when it is not running. */
+  autoIn: number | null
 }
 
 /**
@@ -28,6 +30,7 @@ export default function GameControls({
   playerId,
   playersCount,
   canRescue,
+  autoIn,
 }: GameControlsProps) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -123,7 +126,7 @@ export default function GameControls({
               disabled={busy}
               className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
             >
-              Börja gissa
+              {autoIn !== null ? `Börja gissa (${autoIn}s)` : 'Börja gissa'}
             </button>
           )}
 
@@ -135,13 +138,15 @@ export default function GameControls({
               disabled={busy}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
             >
-              Nästa runda
+              {autoIn !== null ? `Nästa runda (${autoIn}s)` : 'Nästa runda'}
             </button>
           )}
 
           {game.phase === 'guessing' && (
             <p className="text-sm text-gray-600 text-center">
-              Väntar på att alla ska gissa...
+              {playersCount > 1
+                ? 'Väntar på att alla ska gissa...'
+                : 'Placera din nål på kartan'}
             </p>
           )}
 

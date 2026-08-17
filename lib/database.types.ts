@@ -25,6 +25,7 @@ export type Database = {
           max_rounds: number | null
           target_score: number | null
           guess_time_seconds: number
+          auto_advance: boolean
         }
         Insert: {
           id?: string
@@ -41,6 +42,7 @@ export type Database = {
           max_rounds?: number | null
           target_score?: number | null
           guess_time_seconds?: number
+          auto_advance?: boolean
         }
         Update: {
           id?: string
@@ -57,6 +59,7 @@ export type Database = {
           max_rounds?: number | null
           target_score?: number | null
           guess_time_seconds?: number
+          auto_advance?: boolean
         }
         Relationships: []
       }

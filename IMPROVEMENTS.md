@@ -7,26 +7,50 @@ produktionsdata från Supabase (518 spel, 923 spelare, 5 035 gissningar, 102 eve
 
 ## Status
 
-**Batch 1 (kritiska fixar) är implementerad** på grenen
-`fix/critical-server-authority`. Se §9 för vad som återstår.
+**Batch 1 (kritiska fixar) är klar, deployad och verifierad i produktion.**
 
-Åtgärdat: §2.1, §2.2, §2.3, §2.4, §2.5, §2.6, §2.7, §3.2, §4.2, §4.3 (delvis),
-§4.4, §4.6, §5.2, §5.3, §8.
+| Del | Status |
+|---|---|
+| `migration_critical_fixes.sql` (Part A) | ✅ körd, verifierad mot produktion |
+| Ny frontend | ✅ deployad |
+| `migration_critical_fixes_part_b.sql` (Part B) | ✅ körd — anon-skrivningar ger nu 401 |
+| Rotera service-role-nyckeln (§3.1) | ⬜ kvarstår, men nyckeln blev **aldrig pushad** — se not |
 
-Kvarstår som viktigast: **§3.1 (rotera nyckeln — kräver dig)**, §6.1 solo-läge,
-§6.2 avslöjandet, §6.3 poängkurvan, §5.1 bildoptimering, §7 innehåll.
+Åtgärdat: §2.1, §2.2, §2.3, §2.4, §2.5, §2.6, §2.7, §3.2, §4.2, §4.4, §4.6,
+§5.2, §5.3, §8.
+
+**Batch 2 (solo, tempo, poängkurva) är implementerad men inte deployad.**
+
+| Del | Status |
+|---|---|
+| `migration_solo_and_scoring.sql` | ⬜ **måste köras före deploy** |
+| Solo-läge (§6.1) | ✅ implementerat |
+| Auto-advance (§6.4) | ✅ implementerat |
+| Exponentiell poängkurva (§6.3) | ✅ implementerat |
+
+Migrationen är additiv och har ingen brytande del — men den måste köras **före**
+frontend-deployen, eftersom klienten läser `games.auto_advance`.
+
+> **Not om §3.1:** commit `8e85e58` med service-role-nyckeln finns bara på den
+> lokala grenen `do-not-push`. Den är inte ancestor till någon remote-ref och
+> grenen finns inte på GitHub. Exponeringen är alltså **enbart lokal disk**.
+> Rotation är hygien, inte akut — och rotationen slår ut anon-nyckeln också,
+> som är inbakad i bundlen vid build-tid (kräver redeploy).
+
+Kvarstår som viktigast: §6.1 solo-läge, §6.2 avslöjandet, §6.3 poängkurvan,
+§5.1 bildoptimering, §7 innehåll.
 
 ---
 
 ## 0. TL;DR — de fem viktigaste sakerna
 
-| # | Problem | Bevis | Åtgärd |
+| # | Problem | Bevis | Status |
 |---|---|---|---|
-| 1 | **65 % av alla spel spelas ensam** — men spelet är byggt som ett värd-styrt partyspel | 275 av 426 spel hade exakt 1 spelare | Bygg ett riktigt **solo-läge** |
-| 2 | **42 % av startade spel dör inom 2 rundor** | 122 spel slutade efter runda 1, 73 efter runda 2 | Fixa tempot (se #3) + auto-advance |
-| 3 | **Varje runda tar alltid full tid + 5 s** — det går inte att svara klart | Ingen submit-knapp finns i `MapComponent` | Lägg till "Klar"-knapp + tidig rundavslut |
-| 4 | **Poängbuggen i `closest_wins`** delar ut 1–N poäng istället för 1 | `Results.tsx:65-93` körs på *varje* klient | Flytta poängsättning till servern |
-| 5 | **Supabase pausas vid inaktivitet** | Free tier pausar efter 7 dagars inaktivitet | Cron-ping var 3:e dag (10 rader) |
+| 1 | **65 % av alla spel spelas ensam** — men spelet är byggt som ett värd-styrt partyspel | 275 av 426 spel hade exakt 1 spelare | ⬜ **Solo-läge kvarstår — största kvarvarande hävstången** |
+| 2 | **42 % av startade spel dör inom 2 rundor** | 122 spel slutade efter runda 1, 73 efter runda 2 | 🟡 tempot fixat, auto-advance kvarstår |
+| 3 | **Varje runda tar alltid full tid + 5 s** — det går inte att svara klart | Ingen submit-knapp fanns i `MapComponent` | ✅ "Klar!"-knapp + tidig rundavslut |
+| 4 | **Poängbuggen i `closest_wins`** delar ut 1–N poäng istället för 1 | `Results.tsx:65-93` körde på *varje* klient | ✅ `close_round()`, exakt en gång |
+| 5 | **Supabase pausas vid inaktivitet** | Free tier pausar efter 7 dagars inaktivitet | ✅ keepalive-workflow (kräver secrets) |
 
 ---
 
@@ -438,15 +462,15 @@ onödan.
 
 Alla förslag nedan **behåller kärnmekaniken**: se en bild, sätt en nål, närmast vinner.
 
-### 6.1 Solo-läge ⭐ Högst prioritet
+### 6.1 Solo-läge ⭐ DELVIS KLAR
 
-65 % spelar ensamma. Ge dem ett läge som är byggt för det:
+65 % spelar ensamma. Implementerat:
 
-- Knapp på startsidan: **"Spela själv"** — direkt in i spelet, inget namn, ingen
-  kod, ingen lobby, ingen värdknapp.
-- 5 rundor, automatiskt tempo, ingen väntan på någon annan.
-- Slutskärm med totalpoäng och **"Dela ditt resultat"** — en emoji-rad i
-  Wordle-stil som går att klistra in i en gruppchatt:
+- ✅ Knapp på startsidan: **"Spela själv"** — ett klick, inget namn, ingen kod,
+  ingen lobby, ingen värdknapp. Går direkt in i runda 1.
+- ✅ 5 rundor, automatiskt tempo (`auto_advance`), ingen väntan på någon annan.
+- ⬜ Slutskärm med **"Dela ditt resultat"** — en emoji-rad i Wordle-stil som går
+  att klistra in i en gruppchatt:
 
   ```
   Närmast Vinner #142
@@ -471,18 +495,26 @@ försvinner. Gör det till ett *moment*, precis som i programmet:
 
 Ren frontend, ingen mekanikförändring, enormt mycket mer dramatik.
 
-### 6.3 Fixa poängkurvan
+### 6.3 Fixa poängkurvan ✅ KLAR
 
-32 % av alla gissningar ger noll poäng med dagens `max(0, 1000 - km)`. Byt till
-en exponentiell kurva så att *alla* gissningar ger meningsfull återkoppling:
+35 % av alla gissningar gav noll poäng med `max(0, 1000 - km)`. Ersatt med en
+exponentiell kurva (`lib/scoring.ts` + `close_round()`):
 
 ```ts
-// 0 km = 1000 p, 300 km ≈ 740 p, 1000 km ≈ 370 p, 5000 km ≈ 7 p
 const points = Math.round(1000 * Math.exp(-distanceKm / 1000))
 ```
 
-Samma rangordning, samma känsla av "närmare är bättre", men ingen klippkant och
-ingen spelare som ser "0 poäng" en tredjedel av tiden.
+Uppspelat mot samtliga 5 045 verkliga gissningar:
+
+| | Gamla (linjär) | Nya (exponentiell) |
+|---|---|---|
+| Gissningar med 0 poäng | 35,0 % | **9,8 %** |
+| Median­poäng | 573 | **653** |
+| Medel­poäng | 483 | **553** |
+
+Konkret: en gissning 1 200 km fel gick från 0 till 301 poäng. 3 000 km fel gick
+från 0 till 50. Nära gissningar är i princip oförändrade (50 km: 950 → 951), så
+rangordningen är densamma — det är bara bottenplattan som försvunnit.
 
 ### 6.4 Tempo
 
@@ -676,10 +708,11 @@ upplevelsen — särskilt inte med de överflödiga anropen i §5.4 kvar.
 ### Steg 3 — Fixa tempot och tratten (1–2 helger)
 
 - [x] "Klar!"-knapp + avsluta rundan när alla svarat (§2.2, §6.4)
-- [ ] **Solo-läge** (§6.1) ⭐ — störst kvarvarande effekt
-- [ ] Exponentiell poängkurva (§6.3)
-- [ ] Bildoptimering + förladdning (§5.1)
-- [ ] Auto-advance efter resultatvisning (§6.4)
+- [x] **Solo-läge** (§6.1) ⭐ — ett klick från startsidan, inget lobby-steg
+- [x] Exponentiell poängkurva (§6.3) — 0-poängsgissningar: 35,0 % → 9,8 %
+- [x] Auto-advance (§6.4) — alltid på i solo, kryssruta för flerspelarläge
+- [ ] Bildoptimering + förladdning (§5.1) — största kvarvarande prestandaposten
+- [ ] Delbart resultat i Wordle-stil (§6.1)
 
 ### Steg 4 — Gör det roligt inför premiären (2–3 helger)
 

@@ -2,11 +2,8 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { generateGameCode } from '@/lib/utils'
-import { getAvailableColor } from '@/lib/colors'
+import { createGame, GameMode } from '@/lib/createGame'
 
-type GameMode = 'highscore' | 'closest_wins'
 type GameLength = 'kort' | 'medel' | 'lang' | 'maraton'
 
 const GAME_LENGTH_CONFIG = {
@@ -29,11 +26,12 @@ export default function CreateGamePage() {
   const [gameMode, setGameMode] = useState<GameMode>('highscore')
   const [gameLength, setGameLength] = useState<GameLength>('medel')
   const [guessTime, setGuessTime] = useState<15 | 20 | 30>(15)
+  const [autoAdvance, setAutoAdvance] = useState(false)
   const [playerName, setPlayerName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const createGame = async () => {
+  const handleCreate = async () => {
     if (!playerName.trim()) {
       setError('Skriv in ditt namn')
       return
@@ -43,55 +41,15 @@ export default function CreateGamePage() {
     setError('')
 
     try {
-      const code = generateGameCode()
-      const hostId = crypto.randomUUID()
-
-      // Determine max_rounds or target_score based on mode and length
       const config = GAME_LENGTH_CONFIG[gameMode][gameLength]
-      const gameData: any = {
-        code,
-        host_id: hostId,
-        status: 'waiting',
-        current_round: 0,
-        game_mode: gameMode,
-        guess_time_seconds: guessTime,
-      }
-
-      if (gameMode === 'highscore') {
-        gameData.max_rounds = config
-        gameData.target_score = null
-      } else {
-        gameData.target_score = config
-        gameData.max_rounds = null
-      }
-
-      // Create game
-      const { data: game, error: gameError } = await supabase
-        .from('games')
-        .insert(gameData)
-        .select()
-        .single()
-
-      if (gameError) throw gameError
-
-      // Add host as first player
-      const { error: playerError } = await supabase
-        .from('players')
-        .insert({
-          id: hostId,
-          game_id: game.id,
-          name: playerName.trim(),
-          score: 0,
-          color: getAvailableColor([]),
-        })
-
-      if (playerError) throw playerError
-
-      // Store player ID in session
-      sessionStorage.setItem('playerId', hostId)
-      sessionStorage.setItem('playerName', playerName.trim())
-      localStorage.setItem(`playerId_${code}`, hostId)
-      localStorage.setItem(`playerName_${code}`, playerName.trim())
+      const code = await createGame({
+        playerName: playerName.trim(),
+        gameMode,
+        maxRounds: gameMode === 'highscore' ? config : null,
+        targetScore: gameMode === 'closest_wins' ? config : null,
+        guessTimeSeconds: guessTime,
+        autoAdvance,
+      })
 
       router.push(`/game/${code}`)
     } catch (err) {
@@ -134,7 +92,7 @@ export default function CreateGamePage() {
           Skapa Nytt Spel
         </h1>
 
-        <div className="space-y-6 mt-2" onKeyDown={(e) => { if (e.key === 'Enter' && !loading) createGame() }}>
+        <div className="space-y-6 mt-2" onKeyDown={(e) => { if (e.key === 'Enter' && !loading) handleCreate() }}>
           {/* Game Mode Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -257,6 +215,28 @@ export default function CreateGamePage() {
             </div>
           </div>
 
+          {/* Auto-advance. Off by default so hosts who like to discuss the
+              answer between rounds keep control. */}
+          <div>
+            <label className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+              autoAdvance ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300'
+            }`}>
+              <input
+                type="checkbox"
+                checked={autoAdvance}
+                onChange={(e) => setAutoAdvance(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-indigo-600"
+              />
+              <div className="flex-1">
+                <div className="font-semibold text-gray-900">Automatiskt tempo</div>
+                <div className="text-sm text-gray-600">
+                  Spelet går vidare av sig självt mellan rundorna. Du kan alltid
+                  hoppa över väntan.
+                </div>
+              </div>
+            </label>
+          </div>
+
           {/* Player Name Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -286,11 +266,12 @@ export default function CreateGamePage() {
               <li>• {gameMode === 'highscore' ? 'High Score' : 'Närmast Vinner'}</li>
               <li>• {getGameLengthLabel()}</li>
               <li>• {guessTime} sekunder per gissning</li>
+              {autoAdvance && <li>• Automatiskt tempo</li>}
             </ul>
           </div>
 
           <button
-            onClick={createGame}
+            onClick={handleCreate}
             disabled={loading}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation flex items-center justify-center gap-2"
           >

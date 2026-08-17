@@ -16,6 +16,7 @@ import {
   getColorStyle,
   getHexColor,
 } from "@/lib/colors";
+import { pointsForGuess } from "@/lib/scoring";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Guess = Database["public"]["Tables"]["guesses"]["Row"];
@@ -172,13 +173,13 @@ export default function Results({
             const isWinner = index === 0;
             const playerColor = getPlayerColor(guess.player_id);
 
-            // Calculate points based on game mode
-            let points: number;
-            if (game.game_mode === 'closest_wins') {
-              points = isWinner ? 1 : 0;
-            } else {
-              points = Math.max(0, Math.round(1000 - guess.distance_km));
-            }
+            // Display only. close_round() is authoritative; pointsForGuess
+            // mirrors its formula so the two cannot drift.
+            const points = pointsForGuess(
+              game.game_mode,
+              guess.distance_km,
+              isWinner
+            );
 
             return (
               <div
