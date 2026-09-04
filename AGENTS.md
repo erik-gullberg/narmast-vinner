@@ -104,6 +104,11 @@ import('leaflet').then((L) => {
 
 `reactStrictMode` is **disabled** in `next.config.js` specifically because of Leaflet initialization issues — do not re-enable it.
 
+The basemap tile URL and attribution live only in `lib/basemap.ts`, imported by
+both `MapComponent.tsx` and `Results.tsx`. The style must stay
+`light_nolabels` — a labelled style would show place names and give away the
+answer during the guessing phase.
+
 ## Adding Events to the Database
 
 > **There is currently no import tooling in the repo.** `AGENTS.md` used to
@@ -145,10 +150,15 @@ function, which is exactly why `lib/autoAdvance.ts` exists.
 ```
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_CARTO_KEY=...
 ```
 
-The app uses only the anon key. The keepalive workflow needs `SUPABASE_URL` and
-`SUPABASE_SERVICE_ROLE_KEY` as **GitHub repository secrets** — never commit them.
+The app-facing runtime uses only the anon Supabase key and the CARTO basemaps
+key (a free, `NEXT_PUBLIC_*` usage identifier, not a secret — CARTO tiles are
+fetched client-side, so it's visible in devtools regardless). Request a CARTO
+key at https://carto.com/basemaps/apikey. The keepalive workflow needs
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as **GitHub repository
+secrets** — never commit them.
 
 ## Conventions
 

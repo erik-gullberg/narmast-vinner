@@ -443,6 +443,22 @@ alter table events add constraint events_img_https check (image_url like 'https:
 Idag kan importskriptet skriva in trasiga koordinater utan att någon märker det
 förrän mitt i ett spel.
 
+### 4.7 Migrera CARTO-baskartor från raster till vektor
+
+CARTO kräver numera en API-nyckel för sina raster-baskartor (`lib/basemap.ts`),
+vilket är löst. Men CARTO fasar ut rastertjänsten helt och överväger att sluta
+uppdatera dess data — vektortjänsten är "bättre på varje axel som spelar roll"
+enligt dem själva, och samma nyckel täcker redan vektor.
+
+Migreringen är inte trivial: `react-leaflet`s `TileLayer` kan inte rendera
+vektorplattor, så det kräver `maplibre-gl` plus en Leaflet-bro (eller att
+Leaflet tas bort helt), och markörerna/polylinjerna i `Results.tsx` behöver
+skrivas om för det nya kartbiblioteket. Stilen måste fortsatt vara en
+etikettfri (`nolabels`) variant — annars avslöjas svaret under gissningsfasen.
+
+Ingen deadline idag (vektor kräver ingen nyckel ännu), men bör göras innan
+CARTO stänger av raster helt.
+
 ---
 
 ## 5. Prestanda

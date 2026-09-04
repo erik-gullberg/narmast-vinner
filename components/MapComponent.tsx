@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import { MapClickHandler } from './MapClickHandler'
 import { supabase } from '@/lib/supabase'
 import { createPlayerIcon, fixLeafletDefaultIcon } from '@/lib/colors'
+import { BASEMAP_ATTRIBUTION, BASEMAP_URL } from '@/lib/basemap'
 
 interface MapComponentProps {
   gameId: string
@@ -41,10 +42,7 @@ function Map({
       className="z-0"
       placeholder={<div>Laddar karta...</div>}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-      />
+      <TileLayer attribution={BASEMAP_ATTRIBUTION} url={BASEMAP_URL} />
       <MapClickHandler onLocationClick={onLocationClick} disabled={disabled} />
       {guessLat !== null && guessLon !== null && playerIcon && (
         <Marker position={[guessLat, guessLon]} icon={playerIcon} />

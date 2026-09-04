@@ -17,6 +17,7 @@ import {
   getHexColor,
 } from "@/lib/colors";
 import { pointsForGuess } from "@/lib/scoring";
+import { BASEMAP_ATTRIBUTION, BASEMAP_URL } from "@/lib/basemap";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Guess = Database["public"]["Tables"]["guesses"]["Row"];
@@ -90,10 +91,7 @@ export default function Results({
             scrollWheelZoom={true}
             className="z-0"
           >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-            />
+            <TileLayer attribution={BASEMAP_ATTRIBUTION} url={BASEMAP_URL} />
             {/* Event location marker */}
             <Marker
               position={[event.latitude, event.longitude]}
