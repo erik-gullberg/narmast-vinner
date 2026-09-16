@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
+import { SITE_URL } from '@/lib/site'
 
-const siteUrl = 'https://xn--nrmastvinner-bfb.se'
+const siteUrl = SITE_URL
 
 export const metadata: Metadata = {
   title: 'Närmast Vinner - Multiplayer kartspel ',
