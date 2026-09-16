@@ -62,9 +62,9 @@ export default function EventDisplay({ event, onReady }: EventDisplayProps) {
   })
 
   return (
-    <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+    <div className="h-full flex flex-col bg-white rounded-xl shadow-xl overflow-hidden">
       <div
-        className="relative h-96 sm:h-[32rem] md:h-[36rem] lg:h-[40rem] bg-gray-200 cursor-pointer"
+        className="relative flex-1 min-h-0 bg-gray-200 cursor-pointer"
         onClick={() => !hasError && setIsCover(!isCover)}
       >
         {/* Loading skeleton */}

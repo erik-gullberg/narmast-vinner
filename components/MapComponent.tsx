@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type L from 'leaflet'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import { MapClickHandler } from './MapClickHandler'
 import { supabase } from '@/lib/supabase'
@@ -21,12 +22,14 @@ interface MapComponentProps {
 
 // Separate inner component that will be completely remounted
 function Map({
+  mapRef,
   onLocationClick,
   disabled,
   guessLat,
   guessLon,
   playerIcon,
 }: {
+  mapRef: React.RefObject<L.Map>
   onLocationClick: (lat: number, lng: number) => void
   disabled: boolean
   guessLat: number | null
@@ -35,6 +38,7 @@ function Map({
 }) {
   return (
     <MapContainer
+      ref={mapRef}
       center={[20, 0]}
       zoom={2}
       style={{ height: '100%', width: '100%' }}
@@ -75,6 +79,8 @@ export default function MapComponent({
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [playerIcon, setPlayerIcon] = useState<any>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<L.Map>(null)
 
   const hasPlacedPin = guessLat !== null && guessLon !== null
 
@@ -82,6 +88,20 @@ export default function MapComponent({
     fixLeafletDefaultIcon()
     setMounted(true)
   }, [])
+
+  // The map box now flexes to fill whatever space is left instead of a fixed
+  // vh value, so its pixel size can change (e.g. the guess panel below it
+  // wraps to a second line) after Leaflet already measured the container.
+  // Leaflet only listens for window resize, not container resize, so without
+  // this the tiles stay sized for the old box until the window itself resizes.
+  useEffect(() => {
+    if (!mounted || !containerRef.current) return
+    const observer = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize()
+    })
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [mounted])
 
   useEffect(() => {
     setPlayerIcon(createPlayerIcon(playerColor))
@@ -143,8 +163,8 @@ export default function MapComponent({
 
   if (!mounted) {
     return (
-      <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col">
-        <div className="relative flex-1" style={{ minHeight: '500px', height: '70vh' }}>
+      <div className="h-full bg-white rounded-lg shadow overflow-hidden flex flex-col">
+        <div className="relative flex-1 min-h-0">
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">Laddar karta...</p>
           </div>
@@ -156,9 +176,10 @@ export default function MapComponent({
   const locked = disabled || submitted
 
   return (
-    <div className="bg-white rounded-xl shadow-xl overflow-hidden flex flex-col touch-manipulation h-[70vh] lg:h-[80vh] max-h-[900px]">
-      <div key={round} className="relative flex-1 h-full">
+    <div className="h-full bg-white rounded-xl shadow-xl overflow-hidden flex flex-col touch-manipulation">
+      <div key={round} ref={containerRef} className="relative flex-1 min-h-0">
         <Map
+          mapRef={mapRef}
           onLocationClick={handleMapClick}
           disabled={locked}
           guessLat={guessLat}

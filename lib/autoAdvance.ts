@@ -12,7 +12,7 @@
 export const AUTO_IMAGE_MS = 6_000
 
 /** Time on the reveal, measured from when the server closed the round. */
-export const AUTO_REVEAL_MS = 9_000
+export const AUTO_REVEAL_MS = 30_000
 
 /**
  * Floor on how long the picture stays up, measured from the start of the phase

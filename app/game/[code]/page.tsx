@@ -10,13 +10,20 @@ import PlayerList from '@/components/PlayerList'
 import GameControls from '@/components/GameControls'
 import { planAutoAdvance } from '@/lib/autoAdvance'
 
-const Results = dynamic(() => import('@/components/Results'), { ssr: false })
+const ResultsMap = dynamic(
+  () => import('@/components/Results').then((mod) => mod.ResultsMap),
+  { ssr: false }
+)
+const ResultsList = dynamic(
+  () => import('@/components/Results').then((mod) => mod.ResultsList),
+  { ssr: false }
+)
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   ssr: false,
   loading: () => (
-    <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col">
-      <div className="relative flex-1" style={{ minHeight: '500px', height: '75vh' }}>
+    <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col h-full">
+      <div className="relative flex-1 min-h-0">
         <div className="flex items-center justify-center h-full">
           <p className="text-gray-500">Laddar karta...</p>
         </div>
@@ -394,18 +401,23 @@ export default function GamePage() {
     )
   }
 
+  // Mobile: compact horizontal bar so the timer doesn't cost the map any more
+  // height than "Tid  8s  ·  2 av 4 har gissat" needs. Desktop keeps the
+  // original big stacked card since it has room to spare.
   const timerPanel = (
-    <div className="bg-white rounded-lg shadow p-4">
-      <div className="text-center">
-        <div className="text-sm text-gray-600 mb-1">Tid</div>
-        <div
-          className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}
-          aria-live="polite"
-        >
-          {timeLeft}s
+    <div className="bg-white rounded-lg shadow p-3 lg:p-4">
+      <div className="flex items-center justify-center gap-4 lg:block lg:text-center">
+        <div className="flex items-baseline gap-2 lg:flex-col lg:items-center lg:gap-0">
+          <span className="text-sm text-gray-600 lg:mb-1">Tid</span>
+          <span
+            className={`text-3xl lg:text-5xl font-bold tabular-nums ${timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}`}
+            aria-live="polite"
+          >
+            <span className="inline-block min-w-[2ch] text-center">{timeLeft}</span>s
+          </span>
         </div>
         {players.length > 1 && (
-          <div className="text-sm text-gray-600 mt-2">
+          <div className="text-sm text-gray-600 lg:mt-2">
             {guessedCount} av {players.length} har gissat
           </div>
         )}
@@ -413,8 +425,77 @@ export default function GamePage() {
     </div>
   )
 
+  const isPlaying = game?.status === 'playing'
+
+  // Rendered twice: as a slim standalone strip above the map on mobile (the
+  // user asked for round number, then map, then the rest), and again inside
+  // the sidebar so desktop keeps one column with round on top.
+  const roundBar = isPlaying && (
+    <div className="bg-white rounded-lg shadow py-1.5 lg:py-3 px-3 text-center shrink-0">
+      <h2 className="text-gray-600 text-sm lg:text-lg font-bold">Runda {game.current_round}</h2>
+    </div>
+  )
+
+  const showPlayerList =
+    game?.status === 'waiting' || (isPlaying && game.phase === 'showing_image')
+
+  // Sidebar holds every secondary panel (round, timer, controls, scoreboard,
+  // results list) so the media in <main> can take all the leftover space
+  // instead of a fixed vh guess. Ordered after <main> in the DOM so mobile
+  // sees the picture first and the controls below it; lg:order-first puts it
+  // back on the left on desktop.
+  //
+  // Timer and controls are shrink-0 so they can never be scrolled out of
+  // view — only the scoreboard/results list at the bottom scrolls, and only
+  // once it runs out of room.
+  const sidebar = (
+    <aside className="order-3 lg:order-1 lg:w-96 lg:shrink-0 flex flex-col gap-3 min-h-0 max-h-[40dvh] lg:max-h-none">
+      <div className="hidden lg:block">{roundBar}</div>
+
+      {isGuessing && <div className="shrink-0">{timerPanel}</div>}
+
+      {showControls && (
+        <div className="shrink-0">
+          <GameControls
+            game={game}
+            playerId={playerId}
+            playersCount={players.length}
+            canRescue={!isHost && hostStalled}
+            autoIn={autoIn}
+          />
+        </div>
+      )}
+
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3">
+        {showPlayerList && (
+          <PlayerList players={players} currentPlayerId={playerId} gameStatus={game!.status} />
+        )}
+
+        {/* Kept off mobile during guessing (§ layout follow-up): the timer
+            panel already reports "x av y har gissat", and the map needs the
+            space more than a second copy of the scoreboard does. */}
+        {isGuessing && (
+          <div className="hidden lg:block">
+            <PlayerList players={players} currentPlayerId={playerId} gameStatus={game!.status} />
+          </div>
+        )}
+
+        {isRevealing && currentEvent && game && (
+          <ResultsList event={currentEvent} guesses={guesses} players={players} game={game} />
+        )}
+      </div>
+    </aside>
+  )
+
+  const showSidebar =
+    showControls ||
+    game?.status === 'waiting' ||
+    (isPlaying && game.phase === 'showing_image') ||
+    isGuessing ||
+    isRevealing
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className={`${isPlaying ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} bg-gray-100 flex flex-col`}>
       {game?.status !== 'playing' && (
         <header className="bg-white shadow-sm p-4">
           <div className="gap-4 mx-auto flex items-center">
@@ -427,32 +508,11 @@ export default function GamePage() {
         </header>
       )}
 
-      <div className="flex-1 flex flex-col lg:flex-row max-w-[1920px] mx-auto w-full p-4 gap-4">
-        {showControls && (
-          <div className="lg:self-start space-y-4">
-            <GameControls
-              game={game}
-              playerId={playerId}
-              playersCount={players.length}
-              canRescue={!isHost && hostStalled}
-              autoIn={autoIn}
-            />
-            {isGuessing && timerPanel}
-          </div>
-        )}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row max-w-[1920px] mx-auto w-full p-4 gap-4">
+        {roundBar && <div className="order-1 lg:hidden">{roundBar}</div>}
 
-        {/* Sidebar - only rendered when it has content */}
-        {((isGuessing && !showControls) || game?.status === 'waiting') && (
-          <aside className="lg:w-80 space-y-4">
-            {isGuessing && !showControls && timerPanel}
-            {game?.status === 'waiting' && (
-              <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status} />
-            )}
-          </aside>
-        )}
-
-        {/* Main content */}
-        <main className="flex-1 flex flex-col gap-4">
+        {/* Main content: media only while playing, full-width cards otherwise */}
+        <main className="order-2 flex-1 min-w-0 min-h-0 flex flex-col gap-4">
           {game?.status === 'waiting' && (
             <>
               <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -482,42 +542,33 @@ export default function GamePage() {
           )}
 
           {game?.status === 'playing' && currentEvent && game.phase === 'showing_image' && (
-            <>
-              <div key={`event-display-${currentEvent.id}`} className="bg-white rounded-lg shadow pt-8 pb-8 pl-2 pr-2 text-center">
-                <h2 className="text-gray-600 text-2xl font-bold mb-4 flex items-center justify-center gap-2">
-                  <span>Runda {game.current_round}</span>
-                </h2>
-                <EventDisplay
-                  key={currentEvent.id}
-                  event={currentEvent}
-                  onReady={handleImageReady}
-                />
-              </div>
-              <PlayerList players={players} currentPlayerId={playerId} gameStatus={game.status} />
-            </>
+            <div className="flex-1 min-h-0">
+              <EventDisplay
+                key={currentEvent.id}
+                event={currentEvent}
+                onReady={handleImageReady}
+              />
+            </div>
           )}
 
           {isGuessing && currentEvent && playerId && (
-            <MapComponent
-              gameId={game!.id}
-              playerId={playerId}
-              round={game!.current_round}
-              playerColor={myColor}
-              onGuess={() => setHasGuessed(true)}
-              disabled={hasGuessed}
-              timeUp={timeLeft === 0}
-            />
+            <div className="flex-1 min-h-0">
+              <MapComponent
+                gameId={game!.id}
+                playerId={playerId}
+                round={game!.current_round}
+                playerColor={myColor}
+                onGuess={() => setHasGuessed(true)}
+                disabled={hasGuessed}
+                timeUp={timeLeft === 0}
+              />
+            </div>
           )}
 
           {isRevealing && currentEvent && game && (
-            <Results
-              event={currentEvent}
-              guesses={guesses}
-              players={players}
-              game={game}
-              isHost={isHost}
-              onNextRound={() => setHasGuessed(false)}
-            />
+            <div className="flex-1 min-h-0">
+              <ResultsMap event={currentEvent} guesses={guesses} players={players} />
+            </div>
           )}
 
           {game?.status === 'finished' && (
@@ -548,6 +599,8 @@ export default function GamePage() {
             </div>
           )}
         </main>
+
+        {showSidebar && sidebar}
       </div>
     </div>
   )

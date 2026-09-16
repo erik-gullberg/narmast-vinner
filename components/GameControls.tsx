@@ -91,7 +91,7 @@ export default function GameControls({
   const isPlaying = game.status === 'playing'
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 max-h-screen">
+    <div className="bg-white rounded-lg shadow p-4">
       <h3 className="font-bold text-lg mb-3 text-gray-800">Spelkontroller</h3>
 
       {canRescue && (
@@ -126,7 +126,9 @@ export default function GameControls({
               disabled={busy}
               className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
             >
-              {autoIn !== null ? `Börja gissa (${autoIn}s)` : 'Börja gissa'}
+              {autoIn !== null ? (
+                <>Börja gissa (<span className="inline-block w-[1.5ch] text-center tabular-nums">{autoIn}</span>s)</>
+              ) : 'Börja gissa'}
             </button>
           )}
 
@@ -138,7 +140,9 @@ export default function GameControls({
               disabled={busy}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
             >
-              {autoIn !== null ? `Nästa runda (${autoIn}s)` : 'Nästa runda'}
+              {autoIn !== null ? (
+                <>Nästa runda (<span className="inline-block w-[1.5ch] text-center tabular-nums">{autoIn}</span>s)</>
+              ) : 'Nästa runda'}
             </button>
           )}
 
@@ -153,7 +157,7 @@ export default function GameControls({
           <button
             onClick={() => setShowQuitConfirmation(true)}
             disabled={busy}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
+            className="w-full text-sm text-red-600 border border-red-300 hover:text-red-700 hover:bg-red-50 hover:border-red-400 font-medium py-2 px-4 rounded-lg disabled:opacity-50 touch-manipulation transition-colors"
           >
             Avsluta spel
           </button>
