@@ -39,16 +39,19 @@ export const metadata: Metadata = {
     locale: 'sv_SE',
     url: siteUrl,
     siteName: 'Närmast Vinner',
-    title: 'Närmast Vinner - Multiplayer geografispel',
-    description: 'Gissa var historiska händelser inträffade på kartan. Utmana dina vänner och se vem som kommer närmast!',
+    // Tied to the På Spåret season premiere — this is the hook for social
+    // shares. metadata.title/description above (the SEO snippet) is left
+    // alone since it's evergreen, not tied to a specific broadcast window.
+    title: 'Närmast Vinner – inspirerat av På Spåret',
+    description: 'På Spåret är tillbaka på TV. Gissa var historiska händelser inträffade på kartan och utmana dina vänner i realtid – gratis!',
   },
   twitter: {
     // No `images` here: with no explicit list, X/Twitter falls back to the
     // og:image emitted by app/opengraph-image.tsx. An explicit list here
     // previously pointed at public/og-image.png, a file that never existed.
     card: 'summary_large_image',
-    title: 'Närmast Vinner - Geografispel med vänner',
-    description: 'Gissa var historiska händelser inträffade på kartan. Utmana dina vänner!',
+    title: 'Närmast Vinner – På Spåret är tillbaka',
+    description: 'Gissa var historiska händelser inträffade på kartan och utmana dina vänner. Gratis, i realtid.',
   },
   robots: {
     index: true,
