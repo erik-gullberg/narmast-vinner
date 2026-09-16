@@ -28,22 +28,12 @@ const GRADIENT_TO = '#e0e7ff' // indigo-100
 const TITLE_COLOR = '#1f2937' // gray-800
 const TAGLINE_COLOR = '#4b5563' // gray-600
 const GRID_LINE_COLOR = 'rgba(79, 70, 229, 0.08)' // indigo-600, very faint
-const RING_COLOR_RGB = '79, 70, 229' // indigo-600
 
 // Map-graticule texture: a full latitude/longitude-style grid across the
 // whole canvas, faint enough to read as paper texture rather than compete
 // with the text. 1200x630 at a 100px step.
 const GRID_LINES_X = range(100, 1100, 100)
 const GRID_LINES_Y = range(90, 540, 90)
-
-// Concentric "you are here" rings radiating from the logo pin's tip, in
-// place of scattered decorative pins — ties the map motif directly to the
-// one pin that's already the focal point, instead of adding new elements.
-const TARGET_RINGS = [
-  { radius: 50, opacity: 0.22 },
-  { radius: 100, opacity: 0.14 },
-  { radius: 150, opacity: 0.08 },
-]
 
 export default async function Image() {
   const [logoData, boldFont, regularFont] = await Promise.all([
@@ -57,12 +47,6 @@ export default async function Image() {
   // keeping that aspect ratio instead of hardcoding a guessed width.
   const logoHeight = 460
   const logoWidth = Math.round(logoHeight * (571 / 762))
-  const logoLeft = 80 // matches the container's horizontal padding below
-  const logoTop = (size.height - logoHeight) / 2 // container centers it vertically
-  // Center of the ring motif: the pin's tip (bottom point), where a map pin's
-  // coordinate actually is.
-  const tipX = logoLeft + logoWidth / 2
-  const tipY = logoTop + logoHeight
 
   return new ImageResponse(
     (
@@ -101,21 +85,6 @@ export default async function Image() {
               width: 1,
               height: '100%',
               backgroundColor: GRID_LINE_COLOR,
-            }}
-          />
-        ))}
-
-        {TARGET_RINGS.map((ring) => (
-          <div
-            key={ring.radius}
-            style={{
-              position: 'absolute',
-              left: tipX - ring.radius,
-              top: tipY - ring.radius,
-              width: ring.radius * 2,
-              height: ring.radius * 2,
-              borderRadius: '50%',
-              border: `3px solid rgba(${RING_COLOR_RGB}, ${ring.opacity})`,
             }}
           />
         ))}
