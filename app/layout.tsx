@@ -43,10 +43,12 @@ export const metadata: Metadata = {
     description: 'Gissa var historiska händelser inträffade på kartan. Utmana dina vänner och se vem som kommer närmast!',
   },
   twitter: {
+    // No `images` here: with no explicit list, X/Twitter falls back to the
+    // og:image emitted by app/opengraph-image.tsx. An explicit list here
+    // previously pointed at public/og-image.png, a file that never existed.
     card: 'summary_large_image',
     title: 'Närmast Vinner - Geografispel med vänner',
     description: 'Gissa var historiska händelser inträffade på kartan. Utmana dina vänner!',
-    images: ['/og-image.png'],
   },
   robots: {
     index: true,
@@ -66,6 +68,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: '#4f46e5', // indigo-600 — used by Discord for the embed's accent stripe
 }
 
 // JSON-LD structured data for rich search results
