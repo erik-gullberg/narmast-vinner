@@ -88,6 +88,17 @@ export default function GameControls({
     setShowQuitConfirmation(false)
   }
 
+  const toggleAutoAdvance = () =>
+    run(
+      () =>
+        supabase.rpc('set_auto_advance', {
+          p_game_id: game.id,
+          p_player_id: playerId,
+          p_enabled: !game.auto_advance,
+        }),
+      'Det gick inte att ändra automatiskt tempo.'
+    )
+
   const isPlaying = game.status === 'playing'
 
   return (
@@ -99,6 +110,28 @@ export default function GameControls({
           Värden verkar ha lämnat spelet. Du kan föra spelet vidare.
         </p>
       )}
+
+      <label className="flex items-center justify-between gap-3 mb-4 py-1">
+        <span className="text-sm font-medium text-gray-700">
+          Automatiskt tempo
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={game.auto_advance}
+          onClick={toggleAutoAdvance}
+          disabled={busy}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors touch-manipulation disabled:opacity-50 ${
+            game.auto_advance ? 'bg-indigo-600' : 'bg-gray-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              game.auto_advance ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </label>
 
       {game.status === 'waiting' && (
         <button
@@ -127,7 +160,7 @@ export default function GameControls({
               className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
             >
               {autoIn !== null ? (
-                <>Börja gissa (<span className="inline-block w-[1.5ch] text-center tabular-nums">{autoIn}</span>s)</>
+                <>Börja gissa (<span className="inline-block min-w-[2ch] text-center tabular-nums">{autoIn}</span>s)</>
               ) : 'Börja gissa'}
             </button>
           )}
@@ -141,16 +174,14 @@ export default function GameControls({
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 touch-manipulation"
             >
               {autoIn !== null ? (
-                <>Nästa runda (<span className="inline-block w-[1.5ch] text-center tabular-nums">{autoIn}</span>s)</>
+                <>Nästa runda (<span className="inline-block min-w-[2ch] text-center tabular-nums">{autoIn}</span>s)</>
               ) : 'Nästa runda'}
             </button>
           )}
 
-          {game.phase === 'guessing' && (
+          {game.phase === 'guessing' && playersCount > 1 && (
             <p className="text-sm text-gray-600 text-center">
-              {playersCount > 1
-                ? 'Väntar på att alla ska gissa...'
-                : 'Placera din nål på kartan'}
+              Väntar på att alla ska gissa...
             </p>
           )}
 

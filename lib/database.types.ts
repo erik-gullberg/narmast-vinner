@@ -262,6 +262,10 @@ export type Database = {
         Args: { p_player_id: string; p_color: string }
         Returns: undefined
       }
+      set_auto_advance: {
+        Args: { p_game_id: string; p_player_id: string; p_enabled: boolean }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

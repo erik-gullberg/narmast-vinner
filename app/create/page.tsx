@@ -137,9 +137,6 @@ export default function CreateGamePage() {
                   <div className="font-semibold text-gray-900">Närmast Vinner</div>
                   <div className="text-sm text-gray-600">
                     Endast den som gissar närmast får 1 poäng.
-                    <span className="block mt-1 text-amber-600 font-medium">
-                      ⚠️ Bäst med flera spelare
-                    </span>
                   </div>
                 </div>
               </label>

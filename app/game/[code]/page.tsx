@@ -427,6 +427,18 @@ export default function GamePage() {
 
   const isPlaying = game?.status === 'playing'
 
+  // The reveal is exempt from the viewport lock on mobile only: cramming the
+  // results list and "Nästa runda" into the same fixed-height sidebar as the
+  // map forced a tiny nested scrollbox. Letting the page itself scroll here
+  // means the results are shown at their natural size and the controls are
+  // simply further down, not squeezed. Desktop's sidebar was never height
+  // -constrained (lg:max-h-none), so it keeps the locked layout unchanged.
+  const rootHeightClasses = !isPlaying
+    ? 'min-h-screen'
+    : isRevealing
+      ? 'min-h-screen lg:h-[100dvh] lg:overflow-hidden'
+      : 'h-[100dvh] overflow-hidden'
+
   // Rendered twice: as a slim standalone strip above the map on mobile (the
   // user asked for round number, then map, then the rest), and again inside
   // the sidebar so desktop keeps one column with round on top.
@@ -449,13 +461,20 @@ export default function GamePage() {
   // view — only the scoreboard/results list at the bottom scrolls, and only
   // once it runs out of room.
   const sidebar = (
-    <aside className="order-3 lg:order-1 lg:w-96 lg:shrink-0 flex flex-col gap-3 min-h-0 max-h-[40dvh] lg:max-h-none">
+    <aside
+      className={`order-3 lg:order-1 lg:w-96 lg:shrink-0 flex flex-col gap-3 ${
+        isRevealing ? 'lg:min-h-0 lg:max-h-none' : 'min-h-0 max-h-[40dvh] lg:max-h-none'
+      }`}
+    >
       <div className="hidden lg:block">{roundBar}</div>
 
       {isGuessing && <div className="shrink-0">{timerPanel}</div>}
 
+      {/* On the reveal, results outrank the "next round" button on mobile —
+          swapped to after it via order; desktop keeps controls-then-list via
+          lg:order-1/2, matching the DOM order used on every other phase. */}
       {showControls && (
-        <div className="shrink-0">
+        <div className={`shrink-0 ${isRevealing ? 'order-2 lg:order-1' : ''}`}>
           <GameControls
             game={game}
             playerId={playerId}
@@ -466,7 +485,13 @@ export default function GamePage() {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3">
+      <div
+        className={
+          isRevealing
+            ? 'flex flex-col gap-3 order-1 lg:order-2 lg:flex-1 lg:min-h-0 lg:overflow-y-auto'
+            : 'flex-1 min-h-0 overflow-y-auto flex flex-col gap-3'
+        }
+      >
         {showPlayerList && (
           <PlayerList players={players} currentPlayerId={playerId} gameStatus={game!.status} />
         )}
@@ -495,7 +520,7 @@ export default function GamePage() {
     isRevealing
 
   return (
-    <div className={`${isPlaying ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} bg-gray-100 flex flex-col`}>
+    <div className={`${rootHeightClasses} bg-gray-100 flex flex-col`}>
       {game?.status !== 'playing' && (
         <header className="bg-white shadow-sm p-4">
           <div className="gap-4 mx-auto flex items-center">
@@ -566,7 +591,7 @@ export default function GamePage() {
           )}
 
           {isRevealing && currentEvent && game && (
-            <div className="flex-1 min-h-0">
+            <div className="h-[50dvh] lg:h-auto lg:flex-1 lg:min-h-0">
               <ResultsMap event={currentEvent} guesses={guesses} players={players} />
             </div>
           )}
