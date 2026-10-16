@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createGame, GameMode } from '@/lib/createGame'
+import SpinningLogo from '@/components/SpinningLogo'
 
 type GameLength = 'kort' | 'medel' | 'lang' | 'maraton'
 
@@ -71,13 +72,7 @@ export default function CreateGamePage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4 pt-2 bg-gradient-to-br from-blue-50 to-indigo-100">
-      <img
-        className="mt-8 mb-4 animate-bounce [animation-duration:2s]"
-        src="/logo.png"
-        alt="Närmast Vinner logotyp - geografispel"
-        width={80}
-        height={80}
-      />
+      <SpinningLogo />
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div className="mb-6">
           <button
