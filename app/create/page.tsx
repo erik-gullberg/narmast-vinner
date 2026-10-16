@@ -246,7 +246,11 @@ export default function CreateGamePage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               placeholder="Skriv in ditt namn"
               maxLength={20}
-              autoComplete="off"
+              // Chrome ignores "off" and guessed this was the name on a credit
+              // card. A specific valid token overrides its guess.
+              name="nickname"
+              autoComplete="nickname"
+              spellCheck={false}
             />
           </div>
 
