@@ -246,6 +246,16 @@ export type Database = {
         // distance in km, computed server-side
         Returns: number
       }
+      // Saves an unconfirmed pin; close_round() promotes it to a guess.
+      place_pin: {
+        Args: {
+          p_game_id: string
+          p_player_id: string
+          p_lat: number
+          p_lon: number
+        }
+        Returns: undefined
+      }
       close_round: {
         Args: { p_game_id: string }
         Returns: undefined

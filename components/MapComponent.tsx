@@ -7,6 +7,11 @@ import { MapClickHandler } from './MapClickHandler'
 import { supabase } from '@/lib/supabase'
 import { createPlayerIcon, fixLeafletDefaultIcon } from '@/lib/colors'
 import { BASEMAP_ATTRIBUTION, BASEMAP_URL } from '@/lib/basemap'
+import {
+  createLatestOnlySender,
+  type LatestOnlySender,
+  type PinSyncStatus,
+} from '@/lib/pinSync'
 
 interface MapComponentProps {
   gameId: string
@@ -62,6 +67,11 @@ function Map({
  * used to fetch the event's coordinates, compute the distance in the browser
  * and write the player's own score — all of which were trivially forgeable.
  * submit_guess() now does the distance calculation server-side.
+ *
+ * Every pin placement is also saved with place_pin(), and close_round() turns
+ * an unconfirmed pin into the player's guess. So a placed pin counts even if
+ * this browser is asleep, offline or has a slow clock when time runs out.
+ * "Klar!" only locks the guess in early.
  */
 export default function MapComponent({
   gameId,
@@ -79,8 +89,10 @@ export default function MapComponent({
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [playerIcon, setPlayerIcon] = useState<any>(null)
+  const [pinStatus, setPinStatus] = useState<PinSyncStatus>('idle')
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map>(null)
+  const pinSenderRef = useRef<LatestOnlySender<{ lat: number; lon: number }> | null>(null)
 
   const hasPlacedPin = guessLat !== null && guessLon !== null
 
@@ -114,7 +126,30 @@ export default function MapComponent({
     setSubmitting(false)
     setSubmitted(false)
     setError(null)
+    setPinStatus('idle')
   }, [round])
+
+  // One sender per round, so a slow request from the previous round can never
+  // report a status into this one.
+  useEffect(() => {
+    const sender = createLatestOnlySender<{ lat: number; lon: number }>(
+      async ({ lat, lon }) => {
+        const { error: rpcError } = await supabase.rpc('place_pin', {
+          p_game_id: gameId,
+          p_player_id: playerId,
+          p_lat: lat,
+          p_lon: lon,
+        })
+        if (rpcError) {
+          console.error('Error saving pin:', rpcError)
+          throw rpcError
+        }
+      },
+      setPinStatus
+    )
+    pinSenderRef.current = sender
+    return () => sender.stop()
+  }, [gameId, playerId, round])
 
   const submitGuess = useCallback(async () => {
     if (guessLat === null || guessLon === null) return
@@ -147,18 +182,26 @@ export default function MapComponent({
     onGuess()
   }, [gameId, playerId, guessLat, guessLon, submitting, submitted, onGuess])
 
-  // Safety net: if the clock runs out while a pin is placed but not confirmed,
-  // send it anyway rather than scoring the player zero.
+  // Backup for when the server may not have the latest pin (place_pin failed
+  // or is still in flight): send it from here as the clock runs out. When the
+  // pin is saved, close_round() promotes it and nothing needs doing.
   useEffect(() => {
-    if (timeUp && hasPlacedPin && !submitting && !submitted) {
+    if (
+      timeUp &&
+      hasPlacedPin &&
+      pinStatus !== 'saved' &&
+      !submitting &&
+      !submitted
+    ) {
       submitGuess()
     }
-  }, [timeUp, hasPlacedPin, submitting, submitted, submitGuess])
+  }, [timeUp, hasPlacedPin, pinStatus, submitting, submitted, submitGuess])
 
   const handleMapClick = (lat: number, lng: number) => {
-    if (disabled || submitted) return
+    if (disabled || submitted || timeUp) return
     setGuessLat(lat)
     setGuessLon(lng)
+    pinSenderRef.current?.push({ lat, lon: lng })
   }
 
   if (!mounted) {
@@ -173,7 +216,10 @@ export default function MapComponent({
     )
   }
 
-  const locked = disabled || submitted
+  // `disabled` is also true after a refresh when this round's guess is
+  // already stored, so it means "answered" just as much as `submitted` does.
+  const answered = disabled || submitted
+  const locked = answered || timeUp
 
   return (
     <div className="h-full bg-white rounded-xl shadow-xl overflow-hidden flex flex-col touch-manipulation">
@@ -190,14 +236,14 @@ export default function MapComponent({
           <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[1000] pointer-events-none">
             <div className="bg-white rounded-lg p-4 text-center shadow-lg">
               <p className="font-semibold text-gray-900">
-                {submitted ? 'Gissning skickad!' : 'Tiden är ute!'}
+                {answered ? 'Gissning skickad!' : 'Tiden är ute!'}
               </p>
-              {!submitted && !hasPlacedPin && (
+              {!answered && !hasPlacedPin && (
                 <p className="text-sm text-gray-600 mt-1">
                   Du fick inga poäng denna runda
                 </p>
               )}
-              {submitted && (
+              {answered && (
                 <p className="text-sm text-gray-600 mt-1">
                   Väntar på de andra spelarna...
                 </p>
@@ -238,7 +284,7 @@ export default function MapComponent({
           <p className="text-sm text-gray-600 text-center">
             {submitting
               ? 'Skickar gissning...'
-              : submitted
+              : answered
               ? 'Gissning skickad!'
               : 'Tiden är ute!'}
           </p>

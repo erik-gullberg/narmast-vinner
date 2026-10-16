@@ -39,8 +39,9 @@ functions called via `supabase.rpc()`. Do not move any of it back into React.
 |---|---|
 | `start_game` | waiting → playing, picks first event |
 | `begin_guessing` | showing_image → guessing, stamps `phase_started_at` |
-| `submit_guess` | validates window/membership, computes distance, inserts guess |
-| `close_round` | **awards points exactly once**, guessing → revealing |
+| `submit_guess` | validates window/membership, computes distance, inserts guess ("Klar!") |
+| `place_pin` | saves the player's unconfirmed pin on every map click (`pins` table, server-only) |
+| `close_round` | promotes unconfirmed pins to guesses, **awards points exactly once**, guessing → revealing |
 | `advance_round` | picks next event, applies end conditions |
 | `end_game` | marks finished |
 | `set_player_color` | color change during lobby |
@@ -56,6 +57,12 @@ Why it matters:
 - **The server owns the clock.** `submit_guess` and `close_round` both validate
   against `phase_started_at`, so a wrong device clock cannot buy extra time. The
   countdown in `page.tsx` is display only.
+- **A placed pin always counts.** `place_pin` stores it server-side and
+  `close_round` turns it into a guess (`migration_server_pins.sql`), so it no
+  longer depends on the player's browser being awake with a correct clock at
+  the deadline. Pins never count as "answered" for closing a round early;
+  only `submit_guess` does, because a pin can still move. `pins` must stay
+  unreadable to `anon`, or it leaks other players' guesses mid-round.
 - **`anon` has no direct write access** to `games`, `players`, `guesses` or
   `events` (see `migration_critical_fixes_part_b.sql`). Only `INSERT` on
   `games`/`players` remains, for create/join. If you add a write, add an RPC.
