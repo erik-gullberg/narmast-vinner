@@ -19,6 +19,19 @@
 /** Wide enough for a full-bleed image on a desktop display, including 2x phones. */
 export const IMAGE_TARGET_WIDTH = 1280
 
+/**
+ * Wikimedia's edge cache only serves a fixed set of standard thumbnail widths
+ * and returns HTTP 400/429 for arbitrary widths like 320px.
+ */
+const WIKIMEDIA_STANDARD_WIDTHS = [250, 330, 500, 960, 1280, 1920, 3840]
+
+function snapToWikimediaWidth(requested: number): number {
+  for (const w of WIKIMEDIA_STANDARD_WIDTHS) {
+    if (w >= requested) return w
+  }
+  return 1280
+}
+
 // .../wikipedia/commons/thumb/a/ab/Name.jpg/800px-Name.jpg
 const WIKIMEDIA_THUMB =
   /^(https:\/\/upload\.wikimedia\.org\/wikipedia\/[^/]+\/thumb\/.+\/)(\d+)(px-.+)$/
@@ -37,20 +50,28 @@ export function optimizedImageUrl(
 ): string {
   if (!url) return url
 
+  const targetWidth = snapToWikimediaWidth(width)
+
+  // Strip tracking query params (e.g. ?utm_source=sv.wikipedia.org&utm_campaign=imageinfo)
+  // that MediaWiki's imageinfo API appends, otherwise they end up mid-path in /thumb/.../1280px-...
+  const cleanUrl = url.startsWith('https://upload.wikimedia.org/')
+    ? url.split('?')[0]
+    : url
+
   // Already a thumbnail — only ever shrink it, never ask for a bigger one.
-  const thumb = url.match(WIKIMEDIA_THUMB)
+  const thumb = cleanUrl.match(WIKIMEDIA_THUMB)
   if (thumb) {
     const current = parseInt(thumb[2], 10)
-    if (current <= width) return url
-    return `${thumb[1]}${width}${thumb[3]}`
+    if (current <= targetWidth) return cleanUrl
+    return `${thumb[1]}${targetWidth}${thumb[3]}`
   }
 
   // Full-resolution original — point at the generated thumbnail instead.
-  const original = url.match(WIKIMEDIA_ORIGINAL)
+  const original = cleanUrl.match(WIKIMEDIA_ORIGINAL)
   if (original) {
     const [, project, a, ab, name] = original
-    return `https://upload.wikimedia.org/wikipedia/${project}/thumb/${a}/${ab}/${name}/${width}px-${name}`
+    return `https://upload.wikimedia.org/wikipedia/${project}/thumb/${a}/${ab}/${name}/${targetWidth}px-${name}`
   }
 
-  return url
+  return cleanUrl
 }
